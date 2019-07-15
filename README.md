@@ -176,26 +176,19 @@ Now it is OPTIONAL, you don't need to run it if you don't want, as it will simpl
 At the end of the execution of these SQLs, you should have installed a database schema named "heavenms". REGISTER YOUR FIRST ACCOUNT to be used in-game by **creating manually** an entry on the table "accounts" at that database with a login and a password.
 
 Configure the IP you want to use for your MapleStory server in "configuration.ini" file, or set it as "localhost" if you want to run it only on your machine. Alternatively, you can use the IP given by Hamachi to use on a Hamachi network, or you can use a non-Hamachi method of port-forwarding. Neither will be approached here.
-
-#### Configuring the project
-
-Now open NetBeans, and click "New project...". Opt for creating one "with existent code".
-
-In doubt where the project should be located, consider placing it on the same directory you've opted to place the server files.
-
-When prompted for location of source packages, navigate through the file system reaching the server files, and select the "src" folder. Next, click "Finish".
-
-Inside the project you might encounter some code errors, you have yet to set the core JARs of the project.
-
-From the project hierarchy, right-click the project and select "Properties" -> "Libraries" -> "Add JAR/Folder".
-
-Locate the folder "cores" inside the root directory of the server files and manually configure those cores on NetBeans (mina-core, slf4j-api, ...).
-
-Finally, select "Clean and Build project" to build the JAR file for the MapleStory server.
-
+   
 #### Launching the server
+* If using **Windows**: 
+   * Double click `launch.bat` in this 
+* If using **Non-Windows**:
+   * Open this directory in a terminal.
+   * Run `./gradlew run`.
+* If using **Docker**:
+   * Build the project with `./gradlew build`.
+   * `docker-compose up` will get you a new database instance and start the server.
+   * Keep in mind that any changes to the sources requires a rebuild with `./gradlew build`.
 
-Once done, make sure both WampServer and Hamachi are on and functional, then execute "launch.bat" on the base folder of the server files. If no errors were raised from this action, your MapleStory server is now online.
+Once done, make sure both WampServer and Hamachi are on and functional, then execute "launch.bat" on the root of the project. If no errors were raised from this action, your MapleStory server is now online.
 
 ---
 ### Installing the CLIENT 
@@ -251,6 +244,27 @@ To change a character's GM level, make sure that character is not logged in, the
 * Hit APPLY CHANGES.
 
 ---
+### Server Development
+To edit server files, you need a text editor. We recommend using one of these two IDEs:
+
+#### Using NetBeans
+Open NetBeans, and click "Open a project..." . Select then the "HeavenMS" folder, that should already be a project recognizable by NetBeans. If it isn't, you have a problem.
+
+Inside the project, you may encounter some code errors.
+
+If that's the case, you have yet to set the core JARs of the project. From the project hierarchy, right-click the project and select "Resolve Project Problems".
+
+Locate the folder "cores" inside the root directory of this project and manually configure the missing files on NetBeans (mina-core, slf4j-api, ...).
+
+Finally, select "Clean and Build project" to build the JAR file for the MapleStory server. Once done, make sure both WampServer and Hamachi are on and functional, then execute "launch.bat" on the root of the project. If no errors were raised from this action, your MapleStory server is now online.
+
+#### Using IntelliJ IDEA
+
+* Make sure you have downloaded this respository using Clone or Download.
+* Use `File > Open` to select the `build.gradle` file within this project.
+* IntelliJ should configure the rest automatically. 
+
+
 ### Some notes about WZ/WZ.XML EDITING 
 
 NOTE: Be extremely wary when using server-side's XMLs data being reimported into the client's WZ, as some means of synchronization between the server and client modules, this action COULD generate some kind of bugs afterwards. Client-to-server data reimporting seems to be fine, though.
