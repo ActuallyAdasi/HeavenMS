@@ -2,6 +2,9 @@
 .idea/
 /.gradle
 
+# configuration
+configuration.ini
+
 # build files
 
 /build/
