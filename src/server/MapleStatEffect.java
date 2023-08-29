@@ -447,7 +447,7 @@ public class MapleStatEffect {
                     addBuffStatPairToListIfNotZero(statups, MapleBuffStat.MAP_CHAIR, 1);
                 } else if ((sourceid == Beginner.NIMBLE_FEET || sourceid == Noblesse.NIMBLE_FEET || sourceid == Evan.NIMBLE_FEET || sourceid == Legend.AGILE_BODY) && YamlConfig.config.server.USE_ULTRA_NIMBLE_FEET == true) {
                     ret.jump = (short) (ret.speed * 4);
-                    ret.speed *= 15;
+                    ret.speed *= 5;
                 }
             }
 
