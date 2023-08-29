@@ -1,6 +1,7 @@
 ﻿/logs/**
 .idea/
 /.gradle
+wz/**
 
 # configuration
 configuration.ini
