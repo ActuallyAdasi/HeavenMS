@@ -74,7 +74,9 @@ public class MapleGuild {
         Connection con = null;
         try {
             con = DatabaseConnection.getConnection();
-            PreparedStatement ps = con.prepareStatement("SELECT * FROM guilds WHERE guildid = " + guildid);
+            PreparedStatement ps = con.prepareStatement("SELECT * FROM guilds WHERE guildid = " + guildid,
+                    ResultSet.TYPE_SCROLL_SENSITIVE,
+                    ResultSet.CONCUR_UPDATABLE);
             ResultSet rs = ps.executeQuery();
             if (!rs.first()) {
                 id = -1;

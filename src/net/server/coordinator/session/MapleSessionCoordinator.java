@@ -152,8 +152,9 @@ public class MapleSessionCoordinator {
             Connection con = DatabaseConnection.getConnection();
             int hwidCount = 0;
             
-            try (PreparedStatement ps = con.prepareStatement("SELECT SQL_CACHE hwid FROM hwidaccounts WHERE accountid = ?")) {
+            try (PreparedStatement ps = con.prepareStatement("SELECT hwid FROM hwidaccounts WHERE accountid = ?")) {
                 ps.setInt(1, accountId);
+                // java.sql.SQLSyntaxErrorException: Unknown column 'SQL_CACHE' in 'field list'
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         String rsHwid = rs.getString("hwid");
@@ -181,10 +182,11 @@ public class MapleSessionCoordinator {
 
     private static boolean attemptAccessAccount(String nibbleHwid, int accountId, boolean routineCheck) {
         try {
-            Connection con = DatabaseConnection.getConnection();
-            int hwidCount = 0;
 
-            try (PreparedStatement ps = con.prepareStatement("SELECT SQL_CACHE * FROM hwidaccounts WHERE accountid = ?")) {
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement("SELECT * FROM hwidaccounts WHERE accountid = ?")
+            ) {
+                int hwidCount = 0;
                 ps.setInt(1, accountId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -207,8 +209,6 @@ public class MapleSessionCoordinator {
                 if (hwidCount < YamlConfig.config.server.MAX_ALLOWED_ACCOUNT_HWID) {
                     return true;
                 }
-            } finally {
-                con.close();
             }
         } catch (SQLException ex) {
             ex.printStackTrace();

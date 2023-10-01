@@ -58,13 +58,17 @@ public class RankingLoginTask implements Runnable {
             charSelect.setInt(2, job);
         }
         ResultSet rs = charSelect.executeQuery();
-        PreparedStatement ps = con.prepareStatement("UPDATE characters SET " + (job != -1 ? "jobRank = ?, jobRankMove = ? " : "rank = ?, rankMove = ? ") + "WHERE id = ?");
+        // java.sql.SQLSyntaxErrorException: You have an error in your SQL syntax;
+        //  check the manual that corresponds to your MySQL server version for the right syntax to use near
+        //  'rank = 1, rankMove = 0 WHERE id = 3' at line 1
+        // Fixed by adding backticks around `rank`, which is now a protected word, apparently. Same with `name`, FYI.
+        PreparedStatement ps = con.prepareStatement("UPDATE characters SET " + (job != -1 ? "jobRank = ?, jobRankMove = ? " : "`rank` = ?, rankMove = ? ") + "WHERE id = ?");
         int rank = 0;
         
         while (rs.next()) {
             int rankMove = 0;
             rank++;
-            if (rs.getLong("lastlogin") < lastUpdate || rs.getInt("loggedin") > 0) {
+            if (rs.getTimestamp("lastlogin").getTime() < lastUpdate || rs.getInt("loggedin") > 0) {
                 rankMove = rs.getInt((job != -1 ? "jobRankMove" : "rankMove"));
             }
             rankMove += rs.getInt((job != -1 ? "jobRank" : "rank")) - rank;

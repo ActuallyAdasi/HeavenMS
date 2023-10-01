@@ -45,6 +45,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Lock;
 
 import config.YamlConfig;
+// https://stackoverflow.com/questions/56996401/compiling-java-with-vs-code-getting-restriction-on-required-library-error-mes
+// Edited HeavenMS/.settings/org.eclipse.jdt.core.prefs
 import jdk.nashorn.api.scripting.NashornScriptEngine;
 import tools.*;
 
@@ -654,7 +656,7 @@ public class MapleClient {
 			if (!rs.next()) {
 				return null;
 			}
-			long blubb = rs.getLong("tempban");
+			long blubb = rs.getTimestamp("tempban").getTime();
 			
 			if (blubb == 0 || rs.getString("tempban").equals("2018-06-20 00:00:00.0")) { // 0000-00-00 or 2018-06-20 (default set in LoginPasswordHandler)
 				return null;
