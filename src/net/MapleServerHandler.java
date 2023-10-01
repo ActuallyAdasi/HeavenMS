@@ -29,6 +29,7 @@ import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;
 
 import config.YamlConfig;
+import lombok.extern.log4j.Log4j2;
 import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
@@ -60,6 +61,7 @@ import java.util.Map.Entry;
 import net.server.audit.LockCollector;
 import server.TimerManager;
 
+@Log4j2
 public class MapleServerHandler extends IoHandlerAdapter {
     private final static Set<Short> ignoredDebugRecvPackets = new HashSet<>(Arrays.asList((short) 167, (short) 197, (short) 89, (short) 91, (short) 41, (short) 188, (short) 107));
     
@@ -107,6 +109,7 @@ public class MapleServerHandler extends IoHandlerAdapter {
     
     @Override
     public void sessionOpened(IoSession session) {
+        log.info("Calling sessionOpened for IoSession {}", session.getId());
         String remoteHost;
         try {
             remoteHost = ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress();
@@ -150,9 +153,13 @@ public class MapleServerHandler extends IoHandlerAdapter {
         client.setSessionId(sessionId.getAndIncrement()); // Generates a reasonable session id.
         session.write(MaplePacketCreator.getHello(ServerConstants.VERSION, ivSend, ivRecv));
         session.setAttribute(MapleClient.CLIENT_KEY, client);
+        log.info("Done calling sessionOpened for IoSession Id {}, created client session ID {}",
+                session.getId(),
+                client.getSessionId());
     }
 
     private void closeMapleSession(IoSession session) {
+        log.info("Calling closeMapleSession for IoSession {}", session.getId());
         if (isLoginServerHandler()) {
             MapleSessionCoordinator.getInstance().closeLoginSession(session);
         } else {
@@ -189,7 +196,7 @@ public class MapleServerHandler extends IoHandlerAdapter {
         short packetId = slea.readShort();
         MapleClient client = (MapleClient) session.getAttribute(MapleClient.CLIENT_KEY);
         
-        if(YamlConfig.config.server.USE_DEBUG_SHOW_RCVD_PACKET && !ignoredDebugRecvPackets.contains(packetId)) System.out.println("Received packet id " + packetId);
+        if(YamlConfig.config.server.USE_DEBUG_SHOW_RCVD_PACKET && !ignoredDebugRecvPackets.contains(packetId)) log.info("Received packet id " + packetId);
         final MaplePacketHandler packetHandler = processor.getHandler(packetId);
         if (packetHandler != null && packetHandler.validateState(client)) {
             try {

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import config.YamlConfig;
+import lombok.extern.log4j.Log4j2;
 import net.AbstractMaplePacketHandler;
 import server.MapleStatEffect;
 import server.TimerManager;
@@ -105,6 +106,7 @@ import constants.skills.WindArcher;
 import net.server.PlayerBuffValueHolder;
 import scripting.AbstractPlayerInteraction;
 
+@Log4j2
 public abstract class AbstractDealDamageHandler extends AbstractMaplePacketHandler {
 
     public static class AttackInfo {
@@ -138,6 +140,9 @@ public abstract class AbstractDealDamageHandler extends AbstractMaplePacketHandl
     }
 
     protected void applyAttack(AttackInfo attack, final MapleCharacter player, int attackCount) {
+        final long startTime = System.currentTimeMillis();
+        log.debug("Calling AbstractDealDamageHandler.applyAttack with skill {} attack count {} from player {}",
+                attack.skill, attackCount, player.getName());
         final MapleMap map = player.getMap();
         if (map.isOwnershipRestricted(player)) {
             return;
@@ -571,6 +576,8 @@ public abstract class AbstractDealDamageHandler extends AbstractMaplePacketHandl
         } catch (Exception e) {
             e.printStackTrace();
         }
+        final long endTime = System.currentTimeMillis();
+        log.info("AbstractDealDamageHandler.applyAttack took {} ms.", endTime - startTime);
     }
 
     private static void damageMonsterWithSkill(final MapleCharacter attacker, final MapleMap map, final MapleMonster monster, final int damage, int skillid, int fixedTime) {

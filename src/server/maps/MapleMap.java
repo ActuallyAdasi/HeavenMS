@@ -55,6 +55,8 @@ import java.util.Random;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
+
+import lombok.extern.log4j.Log4j2;
 import net.server.audit.locks.MonitoredLockType;
 import net.server.audit.locks.MonitoredReadLock;
 import net.server.audit.locks.MonitoredReentrantReadWriteLock;
@@ -100,6 +102,7 @@ import tools.MaplePacketCreator;
 import tools.Pair;
 import tools.Randomizer;
 
+@Log4j2
 public class MapleMap {
     
     private static final List<MapleMapObjectType> rangedMapobjectTypes = Arrays.asList(MapleMapObjectType.SHOP, MapleMapObjectType.ITEM, MapleMapObjectType.NPC, MapleMapObjectType.MONSTER, MapleMapObjectType.DOOR, MapleMapObjectType.SUMMON, MapleMapObjectType.REACTOR);
@@ -733,6 +736,7 @@ public class MapleMap {
     }
     
     private void dropFromMonster(final MapleCharacter chr, final MapleMonster mob, final boolean useBaseRate) {
+        final long startTime = System.currentTimeMillis();
         if (mob.dropsDisabled() || !dropsOn) {
             return;
         }
@@ -767,6 +771,8 @@ public class MapleMap {
         }
         
         registerMobItemDrops(droptype, mobpos, chRate, pos, dropEntry, visibleQuestEntry, otherQuestEntry, globalEntry, chr, mob);
+        final long endTime = System.currentTimeMillis();
+        log.info("MapleMap.dropFromMonster took {} ms.", endTime - startTime);
     }
     
     public void dropItemsFromMonster(List<MonsterDropEntry> list, final MapleCharacter chr, final MapleMonster mob) {
@@ -1352,11 +1358,16 @@ public class MapleMap {
     }
     
     public boolean damageMonster(final MapleCharacter chr, final MapleMonster monster, final int damage) {
+        final long startTime = System.currentTimeMillis();
+        log.debug("Calling MapleMap.damageMonster with {} damage from {} to monster: {}",
+                damage, chr.getName(), monster.getName());
         if (monster.getId() == 8800000) {
             for (MapleMapObject object : chr.getMap().getMapObjects()) {
                 MapleMonster mons = chr.getMap().getMonsterByOid(object.getObjectId());
                 if (mons != null) {
                     if (mons.getId() >= 8800003 && mons.getId() <= 8800010) {
+                        final long endTime = System.currentTimeMillis();
+                        log.info("MapleMap.damageMonster 1 took {} ms.", endTime - startTime);
                         return true;
                     }
                 }
@@ -1369,14 +1380,20 @@ public class MapleMap {
             if (selfDestr != null && selfDestr.getHp() > -1) {// should work ;p
                 if (monster.getHp() <= selfDestr.getHp()) {
                     killMonster(monster, chr, true, selfDestr.getAction());
+                    final long endTime = System.currentTimeMillis();
+                    log.info("MapleMap.damageMonster 2 took {} ms.", endTime - startTime);
                     return true;
                 }
             }
             if (killed) {
                 killMonster(monster, chr, true);
             }
+            final long endTime = System.currentTimeMillis();
+            log.info("MapleMap.damageMonster 3 took {} ms.", endTime - startTime);
             return true;
         }
+        final long endTime = System.currentTimeMillis();
+        log.info("MapleMap.damageMonster 4 took {} ms.", endTime - startTime);
         return false;
     }
     
@@ -1421,19 +1438,25 @@ public class MapleMap {
     }
 
     public void killMonster(final MapleMonster monster, final MapleCharacter chr, final boolean withDrops, int animation) {
+        final long startTime = System.currentTimeMillis();
         if (monster == null) {
+            log.debug("Calling MapleMap.killMonster with null monster.");
             return;
         }
         
         if (chr == null) {
+            log.debug("Calling MapleMap.killMonster with null character.");
             if (removeKilledMonsterObject(monster)) {
                 monster.dispatchMonsterKilled(false);
                 broadcastMessage(MaplePacketCreator.killMonster(monster.getObjectId(), animation), monster.getPosition());
                 monster.aggroSwitchController(null, false);
             }
         } else {
+            log.debug("Calling MapleMap.killMonster with monster {}, player {}, animation {}, and with drops: {}",
+                    monster.getName(), chr.getName(), animation, withDrops);
             if (removeKilledMonsterObject(monster)) {
                 try {
+                    log.debug("Killing a monster from character {}.", chr.getName());
                     if (monster.getStats().getLevel() >= chr.getLevel() + 30 && !chr.isGM()) {
                         AutobanFactory.GENERAL.alert(chr, " for killing a " + monster.getName() + " which is over 30 levels higher.");
                     }
@@ -1489,8 +1512,10 @@ public class MapleMap {
                             }
                         }
                     }
-                    
+
+                    log.debug("Calling monster.killBy(chr).");
                     MapleCharacter dropOwner = monster.killBy(chr);
+                    log.debug("Checking drop owner and calling dropFromMonster. Drop owner : {}.", dropOwner);
                     if (withDrops && !monster.dropsDisabled()) {
                         if (dropOwner == null) {
                             dropOwner = chr;
@@ -1508,11 +1533,14 @@ public class MapleMap {
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {     // thanks resinate for pointing out a memory leak possibly from an exception thrown
+                    log.debug("Calling MapleMap.killMonster finally block.");
                     monster.dispatchMonsterKilled(true);
                     broadcastMessage(MaplePacketCreator.killMonster(monster.getObjectId(), animation), monster.getPosition());
                 }
             }
         }
+        final long endTime = System.currentTimeMillis();
+        log.info("MapleMap.killMonster took {} ms.",endTime - startTime);
     }
 
     public void killFriendlies(MapleMonster mob) {

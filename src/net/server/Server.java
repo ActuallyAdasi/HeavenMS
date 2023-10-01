@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
 import config.YamlConfig;
+import lombok.extern.log4j.Log4j2;
 import net.server.audit.ThreadTracker;
 import net.server.audit.locks.MonitoredLockType;
 import net.server.audit.locks.MonitoredReadLock;
@@ -107,6 +108,7 @@ import tools.DatabaseConnection;
 import tools.FilePrinter;
 import tools.Pair;
 
+@Log4j2
 public class Server {
     
     private static Server instance = null;
@@ -322,11 +324,10 @@ public class Server {
     private void dumpData() {
         wldRLock.lock();
         try {
-            System.out.println(worlds);
-            System.out.println(channels);
-            System.out.println(worldRecommendedList);
-            System.out.println();
-            System.out.println("---------------------");
+            log.info(worlds);
+            log.info(channels);
+            log.info(worldRecommendedList);
+            log.info("---------------------");
         } finally {
             wldRLock.unlock();
         }
@@ -403,7 +404,7 @@ public class Server {
             wldRLock.unlock();
         }
         
-        System.out.println("Starting world " + i);
+        log.info("Starting world " + i);
 
         int exprate = YamlConfig.config.worlds.get(i).exp_rate;
         int mesorate = YamlConfig.config.worlds.get(i).meso_rate;
@@ -449,10 +450,10 @@ public class Server {
         if (canDeploy) {
             world.setServerMessage(YamlConfig.config.worlds.get(i).server_message);
             
-            System.out.println("Finished loading world " + i + "\r\n");
+            log.info("Finished loading world {}", i);
             return i;
         } else {
-            System.out.println("Could not load world " + i + "...\r\n");
+            log.info("Could not load world {}", i);
             world.shutdown();
             return -2;
         }
@@ -864,7 +865,7 @@ public class Server {
     }
     
     public void init() {
-        System.out.println("HeavenMS v" + ServerConstants.VERSION + " starting up.\r\n");
+        log.info("HeavenMS v{} starting up.", ServerConstants.VERSION);
         
         if(YamlConfig.config.server.SHUTDOWNHOOK)
             Runtime.getRuntime().addShutdownHook(new Thread(shutdown(false)));
@@ -899,16 +900,16 @@ public class Server {
         
         long timeToTake = System.currentTimeMillis();
         SkillFactory.loadAllSkills();
-        System.out.println("Skills loaded in " + ((System.currentTimeMillis() - timeToTake) / 1000.0) + " seconds");
+        log.info("Skills loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
 
         timeToTake = System.currentTimeMillis();
         
         CashItemFactory.getSpecialCashItems();
-        System.out.println("Items loaded in " + ((System.currentTimeMillis() - timeToTake) / 1000.0) + " seconds");
+        log.info("Items loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
         
 	timeToTake = System.currentTimeMillis();
 	MapleQuest.loadAllQuest();
-	System.out.println("Quest loaded in " + ((System.currentTimeMillis() - timeToTake) / 1000.0) + " seconds\r\n");
+	log.info("Quest loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
 	
         NewYearCardRecord.startPendingNewYearCardRequests();
         
@@ -926,19 +927,15 @@ public class Server {
             loadPlayerNpcMapStepFromDb();
         } catch (Exception e) {
             e.printStackTrace();//For those who get errors
-            System.out.println("[SEVERE] Syntax error in 'world.ini'.");
+            log.error("[SEVERE] Syntax error in 'world.ini'.");
             System.exit(0);
         }
-        
-        System.out.println();
         
         if(YamlConfig.config.server.USE_FAMILY_SYSTEM) {
             timeToTake = System.currentTimeMillis();
             MapleFamily.loadAllFamilies();
-            System.out.println("Families loaded in " + ((System.currentTimeMillis() - timeToTake) / 1000.0) + " seconds\r\n");
+            log.info("Families loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
         }
-        
-        System.out.println();
         
         IoBuffer.setUseDirectBuffer(false);     // join IO operations performed by lxconan
         IoBuffer.setAllocator(new SimpleBufferAllocator());
@@ -952,9 +949,8 @@ public class Server {
             ex.printStackTrace();
         }
         
-        System.out.println("Listening on port 8484\r\n\r\n");
-        
-        System.out.println("HeavenMS is now online.\r\n");
+        log.info("Listening on port 8484.");
+        log.info("HeavenMS is now online.");
         online = true;
         
         MapleSkillbookInformationProvider.getInstance();
@@ -1894,7 +1890,7 @@ public class Server {
     }
     
     private synchronized void shutdownInternal(boolean restart) {
-        System.out.println((restart ? "Restarting" : "Shutting down") + " the server!\r\n");
+        log.info((restart ? "Restarting" : "Shutting down") + " the server!");
         if (getWorlds() == null) return;//already shutdown
         for (World w : getWorlds()) {
             w.shutdown();
@@ -1940,7 +1936,7 @@ public class Server {
         TimerManager.getInstance().purge();
         TimerManager.getInstance().stop();
         
-        System.out.println("Worlds + Channels are offline.");
+        log.info("Worlds + Channels are offline.");
         acceptor.unbind();
         acceptor = null;
         if (!restart) {  // shutdown hook deadlocks if System.exit() method is used within its body chores, thanks MIKE for pointing that out
@@ -1951,7 +1947,7 @@ public class Server {
                 }
             }).start();
         } else {
-            System.out.println("\r\nRestarting the server....\r\n");
+            log.info("\r\nRestarting the server....\r\n");
             try {
                 instance.finalize();//FUU I CAN AND IT'S FREE
             } catch (Throwable ex) {

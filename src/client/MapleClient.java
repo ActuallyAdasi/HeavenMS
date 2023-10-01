@@ -80,21 +80,22 @@ import server.maps.*;
 import net.server.audit.locks.MonitoredLockType;
 import net.server.audit.locks.factory.MonitoredReentrantLockFactory;
 import net.server.coordinator.login.MapleLoginBypassCoordinator;
+import tools.connection.DatabaseConnectionProvider;
 
 public class MapleClient {
 
-        public static final int LOGIN_NOTLOGGEDIN = 0;
+	public static final int LOGIN_NOTLOGGEDIN = 0;
 	public static final int LOGIN_SERVER_TRANSITION = 1;
 	public static final int LOGIN_LOGGEDIN = 2;
 	public static final String CLIENT_KEY = "CLIENT";
-        public static final String CLIENT_HWID = "HWID";
-        public static final String CLIENT_NIBBLEHWID = "HWID2";
-        public static final String CLIENT_REMOTE_ADDRESS = "REMOTE_IP";
-        public static final String CLIENT_TRANSITION = "TRANSITION";
+	public static final String CLIENT_HWID = "HWID";
+	public static final String CLIENT_NIBBLEHWID = "HWID2";
+	public static final String CLIENT_REMOTE_ADDRESS = "REMOTE_IP";
+	public static final String CLIENT_TRANSITION = "TRANSITION";
 	private MapleAESOFB send;
 	private MapleAESOFB receive;
 	private final IoSession session;
-        private MapleCharacter player;
+	private MapleCharacter player;
 	private int channel = 1;
 	private int accId = -4;
 	private boolean loggedIn = false;
@@ -112,23 +113,24 @@ public class MapleClient {
 	private int pinattempt = 0;
 	private String pic = "";
 	private int picattempt = 0;
-        private String hwid = null;
-        private byte csattempt = 0;
+	private String hwid = null;
+	private byte csattempt = 0;
 	private byte gender = -1;
 	private boolean disconnecting = false;
-        private final Semaphore actionsSemaphore = new Semaphore(7);
+	private final Semaphore actionsSemaphore = new Semaphore(7);
 	private final Lock lock = MonitoredReentrantLockFactory.createLock(MonitoredLockType.CLIENT, true);
-        private final Lock encoderLock = MonitoredReentrantLockFactory.createLock(MonitoredLockType.CLIENT_ENCODER, true);
-        private final Lock announcerLock = MonitoredReentrantLockFactory.createLock(MonitoredLockType.CLIENT_ANNOUNCER, true);
-        // thanks Masterrulax & try2hack for pointing out a bottleneck issue with shared locks, shavit for noticing an opportunity for improvement
-        private Calendar tempBanCalendar;
+	private final Lock encoderLock = MonitoredReentrantLockFactory.createLock(MonitoredLockType.CLIENT_ENCODER, true);
+	private final Lock announcerLock = MonitoredReentrantLockFactory.createLock(MonitoredLockType.CLIENT_ANNOUNCER, true);
+	// thanks Masterrulax & try2hack for pointing out a bottleneck issue with shared locks, shavit for noticing an opportunity for improvement
+	private final DatabaseConnectionProvider databaseConnectionProvider = new DatabaseConnectionProvider();
+	private Calendar tempBanCalendar;
 	private int votePoints;
 	private int voteTime = -1;
-        private int visibleWorlds;
+	private int visibleWorlds;
 	private long lastNpcClick;
 	private long sessionId;
-        private long lastPacket = System.currentTimeMillis();
-        private int lang = 0;
+	private long lastPacket = System.currentTimeMillis();
+	private int lang = 0;
         
 	public void updateLastPacket() {
 		lastPacket = System.currentTimeMillis();
@@ -138,7 +140,7 @@ public class MapleClient {
 		return lastPacket;
 	}
 
-        public MapleClient(MapleAESOFB send, MapleAESOFB receive, IoSession session) {
+	public MapleClient(MapleAESOFB send, MapleAESOFB receive, IoSession session) {
 		this.send = send;
 		this.receive = receive;
 		this.session = session;
@@ -200,7 +202,7 @@ public class MapleClient {
 		PreparedStatement ps;
 		List<CharNameAndId> chars = new ArrayList<>(15);
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+			Connection con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("SELECT id, name FROM characters WHERE accountid = ? AND world = ?");
 			ps.setInt(1, this.getAccID());
 			ps.setInt(2, worldId);
@@ -224,7 +226,7 @@ public class MapleClient {
 	public boolean hasBannedIP() {
 		boolean ret = false;
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+			Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM ipbans WHERE ? LIKE CONCAT(ip, '%')")) {
 				ps.setString(1, session.getRemoteAddress().toString());
 				try (ResultSet rs = ps.executeQuery()) {
@@ -246,7 +248,7 @@ public class MapleClient {
 			return voteTime;
 		}
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("SELECT date FROM bit_votingrecords WHERE UPPER(account) = UPPER(?)")) {
 				ps.setString(1, accountName);
 				try (ResultSet rs = ps.executeQuery()) {
@@ -284,7 +286,7 @@ public class MapleClient {
 		PreparedStatement ps = null;
                 Connection con = null;
 		try {
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("SELECT COUNT(*) FROM hwidbans WHERE hwid LIKE ?");
 			ps.setString(1, hwid);
 			ResultSet rs = ps.executeQuery();
@@ -327,7 +329,7 @@ public class MapleClient {
 			}
 			sql.append(")");
                         
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement(sql.toString())) {
 				i = 0;
 				for (String mac : macs) {
@@ -351,7 +353,7 @@ public class MapleClient {
 	
 	private void loadHWIDIfNescessary() throws SQLException {
 		if(hwid == null) {
-                        Connection con = DatabaseConnection.getConnection();
+			Connection con = databaseConnectionProvider.getConnection();
 			try(PreparedStatement ps = con.prepareStatement("SELECT hwid FROM accounts WHERE id = ?")) {
 				ps.setInt(1, accId);
 				try(ResultSet rs = ps.executeQuery()) {
@@ -368,7 +370,7 @@ public class MapleClient {
 	// TODO: Recode to close statements...
 	private void loadMacsIfNescessary() throws SQLException {
 		if (macs.isEmpty()) {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("SELECT macs FROM accounts WHERE id = ?")) {
 				ps.setInt(1, accId);
 				try (ResultSet rs = ps.executeQuery()) {
@@ -392,7 +394,7 @@ public class MapleClient {
 		try {
 			loadHWIDIfNescessary();
                         
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("INSERT INTO hwidbans (hwid) VALUES (?)");
 			ps.setString(1, hwid);
 			ps.executeUpdate();
@@ -417,7 +419,7 @@ public class MapleClient {
 		try {
 			loadMacsIfNescessary();
                         
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			List<String> filtered = new LinkedList<>();
 			try (PreparedStatement ps = con.prepareStatement("SELECT filter FROM macfilters"); ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
@@ -465,7 +467,7 @@ public class MapleClient {
 	public void setPin(String pin) {
 		this.pin = pin;
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET pin = ? WHERE id = ?")) {
 				ps.setString(1, pin);
 				ps.setInt(2, accId);
@@ -502,7 +504,7 @@ public class MapleClient {
 	public void setPic(String pic) {
 		this.pic = pic;
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET pic = ? WHERE id = ?")) {
 				ps.setString(1, pic);
 				ps.setInt(2, accId);
@@ -550,7 +552,7 @@ public class MapleClient {
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-			con = DatabaseConnection.getConnection();
+			con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("SELECT id, password, gender, banned, pin, pic, characterslots, tos, language FROM accounts WHERE name = ?");
 			ps.setString(1, login);
 			rs = ps.executeQuery();
@@ -649,7 +651,7 @@ public class MapleClient {
 		ResultSet rs = null;
 		final Calendar lTempban = Calendar.getInstance();
 		try {
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("SELECT `tempban` FROM accounts WHERE id = ?");
 			ps.setInt(1, getAccID());
 			rs = ps.executeQuery();
@@ -722,7 +724,7 @@ public class MapleClient {
 			PreparedStatement ps = null;
                         Connection con = null;
 			try {
-                                con = DatabaseConnection.getConnection();
+                                con = databaseConnectionProvider.getConnection();
 				ps = con.prepareStatement("UPDATE accounts SET hwid = ? WHERE id = ?");
 				ps.setString(1, this.hwid);
 				ps.setInt(2, accId);
@@ -761,7 +763,7 @@ public class MapleClient {
 		}
                 Connection con = null;
 		try {
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("UPDATE accounts SET macs = ? WHERE id = ?");
 			ps.setString(1, newMacData.toString());
 			ps.setInt(2, accId);
@@ -798,7 +800,7 @@ public class MapleClient {
                 }
                 
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET loggedin = ?, lastlogin = ? WHERE id = ?")) {
                                 // using sql currenttime here could potentially break the login, thanks Arnah for pointing this out
                             
@@ -824,7 +826,7 @@ public class MapleClient {
 
 	public int getLoginState() {  // 0 = LOGIN_NOTLOGGEDIN, 1= LOGIN_SERVER_TRANSITION, 2 = LOGIN_LOGGEDIN
 		try {
-			Connection con = DatabaseConnection.getConnection();
+			Connection con = databaseConnectionProvider.getConnection();
 			PreparedStatement ps = con.prepareStatement("SELECT loggedin, lastlogin, birthday FROM accounts WHERE id = ?");
 			ps.setInt(1, getAccID());
 			ResultSet rs = ps.executeQuery();
@@ -1204,7 +1206,7 @@ public class MapleClient {
 			return true;
 		}
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			PreparedStatement ps = con.prepareStatement("SELECT `tos` FROM accounts WHERE id = ?");
 			ps.setInt(1, accId);
 			ResultSet rs = ps.executeQuery();
@@ -1246,7 +1248,7 @@ public class MapleClient {
 	public int getVotePoints(){
 		int points = 0;
 		try {
-                        Connection con = DatabaseConnection.getConnection();
+                        Connection con = databaseConnectionProvider.getConnection();
 			PreparedStatement ps = con.prepareStatement("SELECT `votepoints` FROM accounts WHERE id = ?");
 			ps.setInt(1, accId);
 			ResultSet rs = ps.executeQuery();
@@ -1282,7 +1284,7 @@ public class MapleClient {
 
 	private void saveVotePoints() {
 		try {
-			Connection con = DatabaseConnection.getConnection();
+			Connection con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET votepoints = ? WHERE id = ?")) {
 				ps.setInt(1, votePoints);
 				ps.setInt(2, accId);
@@ -1381,7 +1383,7 @@ public class MapleClient {
 		if (canGainCharacterSlot()) {
 			Connection con = null;
 			try {
-                                con = DatabaseConnection.getConnection();
+                                con = databaseConnectionProvider.getConnection();
                                 
 				try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET characterslots = ? WHERE id = ?")) {
 					ps.setInt(1, this.characterSlots += 1);
@@ -1403,7 +1405,7 @@ public class MapleClient {
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			ps = con.prepareStatement("SELECT `greason` FROM `accounts` WHERE id = ?");
 			ps.setInt(1, accId);
 			rs = ps.executeQuery();
@@ -1438,7 +1440,7 @@ public class MapleClient {
 		this.gender = m;
                 Connection con = null;
 		try {
-                        con = DatabaseConnection.getConnection();
+                        con = databaseConnectionProvider.getConnection();
 			try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET gender = ? WHERE id = ?")) {
 				ps.setByte(1, gender);
 				ps.setInt(2, accId);

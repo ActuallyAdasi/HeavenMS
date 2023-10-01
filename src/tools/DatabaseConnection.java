@@ -9,19 +9,26 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import config.YamlConfig;
+import lombok.extern.log4j.Log4j2;
 
 /**
  * @author Frz (Big Daddy)
  * @author The Real Spookster - some modifications to this beautiful code
  * @author Ronan - some connection pool to this beautiful code
  */
+@Log4j2
 public class DatabaseConnection {
     private static HikariDataSource ds;
     
     public static Connection getConnection() throws SQLException {
+        final long startTime = System.currentTimeMillis();
         if(ds != null) {
             try {
-                return ds.getConnection();
+                final Connection connectionToReturn = ds.getConnection();
+                final long endTime = System.currentTimeMillis();
+                log.info("DatabaseConnection.getConnection: returning existing hikari data source connection after {} ms.",
+                        endTime - startTime);
+                return connectionToReturn;
             } catch (SQLException sqle) {
                 sqle.printStackTrace();
             }
@@ -30,7 +37,16 @@ public class DatabaseConnection {
         int denies = 0;
         while(true) {   // There is no way it can pass with a null out of here?
             try {
-                return DriverManager.getConnection(YamlConfig.config.server.DB_URL, YamlConfig.config.server.DB_USER, YamlConfig.config.server.DB_PASS);
+                final Connection connectionToReturn = DriverManager.getConnection(
+                        YamlConfig.config.server.DB_URL,
+                        YamlConfig.config.server.DB_USER,
+                        YamlConfig.config.server.DB_PASS);
+//                final long endTime = System.currentTimeMillis();
+//                final String logMessage = String.format(
+//                        "DatabaseConnection.getConnection: returning DriverManager.getConnection after %s ms.",
+//                        endTime - startTime);
+//                System.out.println(logMessage);
+                return connectionToReturn;
             } catch (SQLException sqle) {
                 denies++;
                 
@@ -60,15 +76,15 @@ public class DatabaseConnection {
     }
     
     public DatabaseConnection() {
+        final long startTime = System.currentTimeMillis();
         try {
             Class.forName("com.mysql.jdbc.Driver"); // touch the mysql driver
         } catch (ClassNotFoundException e) {
-            System.out.println("[SEVERE] SQL Driver Not Found. Consider death by clams.");
-            e.printStackTrace();
+            log.error("[SEVERE] SQL Driver Not Found.", e);
         }
-        
+
         ds = null;
-        
+
         if(YamlConfig.config.server.DB_CONNECTION_POOL) {
             // Connection Pool on database ftw!
             
@@ -93,5 +109,10 @@ public class DatabaseConnection {
 
             ds = new HikariDataSource(config);
         }
+        final long endTime = System.currentTimeMillis();
+        final String logMessage = String.format(
+                "DatabaseConnection initialized after %s ms.",
+                endTime - startTime);
+        System.out.println(logMessage);
     }
 }

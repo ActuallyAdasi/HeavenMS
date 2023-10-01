@@ -56,6 +56,8 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
+import lombok.extern.log4j.Log4j2;
 import net.server.audit.locks.MonitoredReentrantLock;
 import net.server.channel.Channel;
 import net.server.world.MapleParty;
@@ -82,6 +84,7 @@ import server.MapleStatEffect;
 import server.loot.MapleLootManager;
 import server.maps.MapleSummon;
 
+@Log4j2
 public class MapleMonster extends AbstractLoadedMapleLife {
     
     private ChangeableStats ostats = null;  //unused, v83 WZs offers no support for changeable stats.
@@ -401,11 +404,16 @@ public class MapleMonster extends AbstractLoadedMapleLife {
     }
     
     public boolean damage(MapleCharacter attacker, int damage, boolean stayAlive) {
+        final long startTime = System.currentTimeMillis();
+        log.debug("Calling MapleMonster.damage with {} damage from {}, still alive: {}",
+                damage, attacker.getName(), stayAlive);
         boolean lastHit = false;
         
         this.lockMonster();
         try {
             if (!this.isAlive()) {
+                final long endTime = System.currentTimeMillis();
+                log.info("MapleMonster.damage 1 took {} ms.", endTime - startTime);
                 return false;
             }
 
@@ -441,7 +449,9 @@ public class MapleMonster extends AbstractLoadedMapleLife {
         } finally {
             this.unlockMonster();
         }
-        
+
+        final long endTime = System.currentTimeMillis();
+        log.info("MapleMonster.damage 2 took {} ms.", endTime - startTime);
         return lastHit;
     }
     
@@ -772,6 +782,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
     }
     
     public MapleCharacter killBy(final MapleCharacter killer) {
+        final long startTime = System.currentTimeMillis();
         distributeExperience(killer != null ? killer.getId() : 0);
         
         final Pair<MapleCharacter, Boolean> lastController = aggroRemoveController();
@@ -842,10 +853,12 @@ public class MapleMonster extends AbstractLoadedMapleLife {
                 }, getAnimationTime("die1"));
             }
         } else {  // is this even necessary?
-            System.out.println("[CRITICAL LOSS] toSpawn is null for " + this.getName());
+            log.warn("[CRITICAL LOSS] toSpawn is null for " + this.getName());
         }
         
         MapleCharacter looter = map.getCharacterById(getHighestDamagerId());
+        final long endTime = System.currentTimeMillis();
+        log.info("MapleMonster.killBy took {} ms.", endTime - startTime);
         return looter != null ? looter : killer;
     }
     
@@ -1144,7 +1157,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
             case WEAK:
                 break;
             default: {
-                System.out.println("Unknown elemental effectiveness: " + getMonsterEffectiveness(status.getSkill().getElement()));
+                log.warn("Unknown elemental effectiveness: " + getMonsterEffectiveness(status.getSkill().getElement()));
                 return false;
             }
         }

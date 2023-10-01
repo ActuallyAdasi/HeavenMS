@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'io.freefair.lombok' version '8.3'
 }
 
 sourceCompatibility = '1.8'
@@ -11,12 +12,15 @@ repositories {
 }
 
 dependencies {
+    compileOnly 'org.projectlombok:lombok:1.18.22'
+    annotationProcessor 'org.projectlombok:lombok:1.18.22'
     implementation group: 'com.zaxxer', name: 'HikariCP-java7', version: '2.4.13'
     implementation group: 'org.apache.mina', name: 'mina-core', version: '2.0.21'
-    implementation group: 'mysql', name: 'mysql-connector-java', version: '8.0.28'
-    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
-    implementation group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+    implementation group: 'mysql', name: 'mysql-connector-java', version: '8.0.33'
     implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.15.2'
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.20.0' // Use the latest version
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.20.0' // Use the same version as log4j-api
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.20.0' // Use the same version as log4j-api
 }
 
 sourceSets {
@@ -24,12 +28,16 @@ sourceSets {
         java {
             srcDirs 'src'
         }
+        resources {
+            srcDirs 'configuration'
+        }
     }
 }
 
 mainClassName = "net.server.Server"
 
 jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes(
                 'Main-Class': mainClassName
@@ -38,4 +46,5 @@ jar {
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
+    from 'configuration' // Include the log4j2.xml file
 }

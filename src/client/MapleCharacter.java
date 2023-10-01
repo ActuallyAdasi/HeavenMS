@@ -119,6 +119,7 @@ import tools.FilePrinter;
 import tools.MaplePacketCreator;
 import tools.Pair;
 import tools.Randomizer;
+import tools.connection.DatabaseConnectionProvider;
 import tools.exceptions.NotEnabledException;
 import tools.packets.Wedding;
 import client.autoban.AutobanManager;
@@ -186,7 +187,8 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     private static final String[] BLOCKED_NAMES = {"admin", "owner", "moderator", "intern", "donor", "administrator", "FREDRICK", "help", "helper", "alert", "notice", "maplestory", "fuck", "wizet", "fucking", "negro", "fuk", "fuc", "penis", "pussy", "asshole", "gay",
         "nigger", "homo", "suck", "cum", "shit", "shitty", "condom", "security", "official", "rape", "nigga", "sex", "tit", "boner", "orgy", "clit", "asshole", "fatass", "bitch", "support", "gamemaster", "cock", "gaay", "gm",
         "operate", "master", "sysop", "party", "GameMaster", "community", "message", "event", "test", "meso", "Scania", "yata", "AsiaSoft", "henesys"};
-    
+    private final DatabaseConnectionProvider databaseConnectionProvider = new DatabaseConnectionProvider();
+
     private int world;
     private int accountid, id, level;
     private int rank, rankMove, jobRank, jobRankMove;
@@ -731,7 +733,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     public void ban(String reason) {
         this.isbanned = true;
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET banned = 1, banreason = ? WHERE id = ?")) {
                 ps.setString(1, reason);
                 ps.setInt(2, accountid);
@@ -1877,7 +1879,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
             skills.remove(skill);
             this.client.announce(MaplePacketCreator.updateSkill(skill.getId(), newLevel, newMasterlevel, -1)); //Shouldn't use expiration anymore :)
             try {
-                Connection con = DatabaseConnection.getConnection();
+                Connection con = databaseConnectionProvider.getConnection();
                 try (PreparedStatement ps = con.prepareStatement("DELETE FROM skills WHERE skillid = ? AND characterid = ?")) {
                     ps.setInt(1, skill.getId());
                     ps.setInt(2, id);
@@ -2216,7 +2218,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
 
     public void deleteGuild(int guildId) {
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try {
                 try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET guildid = 0, guildrank = 5 WHERE guildid = ?")) {
                     ps.setInt(1, guildId);
@@ -5399,7 +5401,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         int elapsedDays = 0;
         
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             
             try (PreparedStatement ps = con.prepareStatement("SELECT `timestamp` FROM `fredstorage` WHERE `cid` = ?")) {
                 ps.setInt(1, id);
@@ -6147,7 +6149,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         lastfametime = System.currentTimeMillis();
         lastmonthfameids.add(Integer.valueOf(to.getId()));
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("INSERT INTO famelog (characterid, characterid_to) VALUES (?, ?)")) {
                 ps.setInt(1, getId());
                 ps.setInt(2, to.getId());
@@ -8180,7 +8182,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         
         if (!listcd.isEmpty()) {
             try {
-                Connection con = DatabaseConnection.getConnection();
+                Connection con = databaseConnectionProvider.getConnection();
                 deleteWhereCharacterId(con, "DELETE FROM cooldowns WHERE charid = ?");
                 try (PreparedStatement ps = con.prepareStatement("INSERT INTO cooldowns (charid, SkillID, StartTime, length) VALUES (?, ?, ?, ?)")) {
                     ps.setInt(1, getId());
@@ -8202,7 +8204,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         Map<MapleDisease, Pair<Long, MobSkill>> listds = getAllDiseases();
         if (!listds.isEmpty()) {
             try {
-                Connection con = DatabaseConnection.getConnection();
+                Connection con = databaseConnectionProvider.getConnection();
                 deleteWhereCharacterId(con, "DELETE FROM playerdiseases WHERE charid = ?");
                 try (PreparedStatement ps = con.prepareStatement("INSERT INTO playerdiseases (charid, disease, mobskillid, mobskilllv, length) VALUES (?, ?, ?, ?, ?)")) {
                     ps.setInt(1, getId());
@@ -8229,7 +8231,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
 
     public void saveGuildStatus() {
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET guildid = ?, guildrank = ?, allianceRank = ? WHERE id = ?")) {
                 ps.setInt(1, guildid);
                 ps.setInt(2, guildRank);
@@ -8292,7 +8294,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         PreparedStatement ps = null;
 
         try {
-            con = DatabaseConnection.getConnection();
+            con = databaseConnectionProvider.getConnection();
             
             con.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
             con.setAutoCommit(false);
@@ -8465,7 +8467,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         
         Connection con = null;
         try {
-            con = DatabaseConnection.getConnection();
+            con = databaseConnectionProvider.getConnection();
             con.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
             con.setAutoCommit(false);
             PreparedStatement ps;
@@ -9036,7 +9038,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
 
     public void setHasMerchant(boolean set) {
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             
             try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET HasMerchant = ? WHERE id = ?")) {
                 ps.setInt(1, set ? 1 : 0);
@@ -9057,7 +9059,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         try {
             newAmount = (int) Math.min((long) merchantmeso + add, Integer.MAX_VALUE);
             
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET MerchantMesos = ? WHERE id = ?", Statement.RETURN_GENERATED_KEYS)) {
                 ps.setInt(1, newAmount);
                 ps.setInt(2, id);
@@ -9074,7 +9076,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
 
     public void setMerchantMeso(int set) {
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET MerchantMesos = ? WHERE id = ?", Statement.RETURN_GENERATED_KEYS)) {
                 ps.setInt(1, set);
                 ps.setInt(2, id);
@@ -9355,7 +9357,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         
         this.name = name;
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             PreparedStatement ps = con.prepareStatement("UPDATE `characters` SET `name` = ? WHERE `id` = ?");
             ps.setString(1, name);
             ps.setInt(2, id);
@@ -9776,7 +9778,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     
     public void showNote() {
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("SELECT * FROM notes WHERE `to` = ? AND `deleted` = 0", ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE)) {
                 ps.setString(1, this.getName());
                 try (ResultSet rs = ps.executeQuery()) {
@@ -10339,7 +10341,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         cal.add(Calendar.DATE, days);
         Timestamp TS = new Timestamp(cal.getTimeInMillis());
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET banreason = ?, tempban = ?, greason = ? WHERE id = ?")) {
                 ps.setString(1, desc);
                 ps.setTimestamp(2, TS);
@@ -10673,7 +10675,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     public void logOff() {
         this.loggedIn = false;
 
-        try (Connection con = DatabaseConnection.getConnection(); PreparedStatement ps = con.prepareStatement("UPDATE characters SET lastLogoutTime=? WHERE id=?")) {
+        try (Connection con = databaseConnectionProvider.getConnection(); PreparedStatement ps = con.prepareStatement("UPDATE characters SET lastLogoutTime=? WHERE id=?")) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setInt(2, getId());
             ps.executeUpdate();
@@ -10782,7 +10784,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     }
     
     public boolean registerNameChange(String newName) {
-        try (Connection con = DatabaseConnection.getConnection()) {
+        try (Connection con = databaseConnectionProvider.getConnection()) {
             //check for pending name change
             long currentTimeMillis = System.currentTimeMillis();
             try (PreparedStatement ps = con.prepareStatement("SELECT completionTime FROM namechanges WHERE characterid=?")) { //double check, just in case
@@ -10817,7 +10819,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     }
     
     public boolean cancelPendingNameChange() {
-        try (Connection con = DatabaseConnection.getConnection();
+        try (Connection con = databaseConnectionProvider.getConnection();
                 PreparedStatement ps = con.prepareStatement("DELETE FROM namechanges WHERE characterid=? AND completionTime IS NULL")) {
             ps.setInt(1, getId());
             int affectedRows = ps.executeUpdate();
@@ -10832,7 +10834,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     
     public void doPendingNameChange() { //called on logout
         if(!pendingNameChange) return;
-        try (Connection con = DatabaseConnection.getConnection()) {
+        try (Connection con = databaseConnectionProvider.getConnection()) {
             int nameChangeId = -1;
             String newName = null;
             try (PreparedStatement ps = con.prepareStatement("SELECT * FROM namechanges WHERE characterid = ? AND completionTime IS NULL")) {
@@ -11058,7 +11060,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     }
     
     public boolean registerWorldTransfer(int newWorld) {
-        try (Connection con = DatabaseConnection.getConnection()) {
+        try (Connection con = databaseConnectionProvider.getConnection()) {
             //check for pending world transfer
             long currentTimeMillis = System.currentTimeMillis();
             try (PreparedStatement ps = con.prepareStatement("SELECT completionTime FROM worldtransfers WHERE characterid=?")) { //double check, just in case
@@ -11092,7 +11094,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     }
     
     public boolean cancelPendingWorldTranfer() {
-        try (Connection con = DatabaseConnection.getConnection();
+        try (Connection con = databaseConnectionProvider.getConnection();
                 PreparedStatement ps = con.prepareStatement("DELETE FROM worldtransfers WHERE characterid=? AND completionTime IS NULL")) {
             ps.setInt(1, getId());
             int affectedRows = ps.executeUpdate();
@@ -11166,7 +11168,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         Connection con = null;
         PreparedStatement ps = null;
         try {
-            con = DatabaseConnection.getConnection();
+            con = databaseConnectionProvider.getConnection();
             ps = con.prepareStatement("SELECT rewardpoints FROM accounts WHERE id=?;");
             ps.setInt(1, accountid);
             ResultSet resultSet = ps.executeQuery();
@@ -11188,7 +11190,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         Connection con = null;
         PreparedStatement ps = null;
         try {
-            con = DatabaseConnection.getConnection();
+            con = databaseConnectionProvider.getConnection();
             ps = con.prepareStatement("UPDATE accounts SET rewardpoints=? WHERE id=?;");
             ps.setInt(1, value);
             ps.setInt(2, accountid);
@@ -11209,7 +11211,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         Connection con = null;
         PreparedStatement ps = null;
         try {
-            con = DatabaseConnection.getConnection();
+            con = databaseConnectionProvider.getConnection();
             ps = con.prepareStatement("UPDATE characters SET reborns=? WHERE id=?;");
             ps.setInt(1, value);
             ps.setInt(2, id);
@@ -11234,7 +11236,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
         Connection con = null;
         PreparedStatement ps = null;
         try {
-            con = DatabaseConnection.getConnection();
+            con = databaseConnectionProvider.getConnection();
             ps = con.prepareStatement("SELECT reborns FROM characters WHERE id=?;");
             ps.setInt(1, id);
             ResultSet resultSet = ps.executeQuery();
@@ -11426,7 +11428,7 @@ public class MapleCharacter extends AbstractMapleCharacterObject {
     public void setLanguage(int num) {
         getClient().setLanguage(num);
         try {
-            Connection con = DatabaseConnection.getConnection();
+            Connection con = databaseConnectionProvider.getConnection();
             try (PreparedStatement ps = con.prepareStatement("UPDATE accounts SET language = ? WHERE id = ?")) {
                 ps.setInt(1, num);
                 ps.setInt(2, getClient().getAccID());

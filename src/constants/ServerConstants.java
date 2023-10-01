@@ -1,8 +1,11 @@
 package constants;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.io.FileInputStream;
 import java.util.Properties;
 
+@Log4j2
 public class ServerConstants {
     // Thread Tracker Configuration
     // [SEVERE] This deadlock auditing thing will bloat the memory as fast as the time frame one takes to lose track
@@ -340,7 +343,7 @@ public class ServerConstants {
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Failed to load configuration.ini.");
+            log.error("Failed to load configuration.ini.");
             System.exit(0);
         }
     }
