@@ -642,10 +642,25 @@ public class MapleMap {
         return new Pair<>(getRoundedCoordinate(angle), Integer.valueOf((int)distn));
     }
 
-    private static void sortDropEntries(List<MonsterDropEntry> from, List<MonsterDropEntry> item, List<MonsterDropEntry> visibleQuest, List<MonsterDropEntry> otherQuest, MapleCharacter chr) {
+    // Big source of latency on first kill of a mob (per connection?)
+    private static void sortDropEntries(
+            List<MonsterDropEntry> from,
+            List<MonsterDropEntry> item,
+            List<MonsterDropEntry> visibleQuest,
+            List<MonsterDropEntry> otherQuest, MapleCharacter chr
+    ) {
+        log.debug("[sortDropEntries] start");
+        final long startTime = System.currentTimeMillis();
         MapleItemInformationProvider ii = MapleItemInformationProvider.getInstance();
-        
+
+        log.debug("[sortDropEntries] from.size(): {}, item.size(): {}, visibleQuest.size(): {}, " +
+                        "otherQuest.size(): {}, chr.getName: {}",
+                from.size(), item.size(), visibleQuest.size(), otherQuest.size(), chr.getName());
+        int count = 0;
         for(MonsterDropEntry mde : from) {
+            // There are tens of these, each one taking 40-50ms, this is a major contributor to latency
+            count += 1;
+            log.debug("[sortDropEntries] MonsterDropEntry Iteration {}", count);
             if(!ii.isQuestItem(mde.itemId)) {
                 item.add(mde);
             } else {
@@ -656,6 +671,12 @@ public class MapleMap {
                 }
             }
         }
+
+        log.debug("[sortDropEntries] 2nd time from.size(): {}, item.size(): {}, visibleQuest.size(): {}, " +
+                        "otherQuest.size(): {}, chr.getName: {}",
+                from.size(), item.size(), visibleQuest.size(), otherQuest.size(), chr.getName());
+        final long endTime = System.currentTimeMillis();
+        log.debug("MapleMap.sortDropEntries took {} ms.", endTime - startTime);
     }
     
     private byte dropItemsFromMonsterOnMap(List<MonsterDropEntry> dropEntry, Point pos, byte d, int chRate, byte droptype, int mobpos, MapleCharacter chr, MapleMonster mob) {
@@ -772,7 +793,7 @@ public class MapleMap {
         
         registerMobItemDrops(droptype, mobpos, chRate, pos, dropEntry, visibleQuestEntry, otherQuestEntry, globalEntry, chr, mob);
         final long endTime = System.currentTimeMillis();
-        log.info("MapleMap.dropFromMonster took {} ms.", endTime - startTime);
+        log.debug("MapleMap.dropFromMonster took {} ms.", endTime - startTime);
     }
     
     public void dropItemsFromMonster(List<MonsterDropEntry> list, final MapleCharacter chr, final MapleMonster mob) {
@@ -990,7 +1011,13 @@ public class MapleMap {
         }
     }
     
-    private void registerMobItemDrops(byte droptype, int mobpos, int chRate, Point pos, List<MonsterDropEntry> dropEntry, List<MonsterDropEntry> visibleQuestEntry, List<MonsterDropEntry> otherQuestEntry, List<MonsterGlobalDropEntry> globalEntry, MapleCharacter chr, MapleMonster mob) {
+    private void registerMobItemDrops(
+            byte droptype, int mobpos, int chRate, Point pos,
+            List<MonsterDropEntry> dropEntry, List<MonsterDropEntry> visibleQuestEntry,
+            List<MonsterDropEntry> otherQuestEntry, List<MonsterGlobalDropEntry> globalEntry,
+            MapleCharacter chr, MapleMonster mob
+    ) {
+        final long startTime = System.currentTimeMillis();
         MobLootEntry mle = new MobLootEntry(droptype, mobpos, chRate, pos, dropEntry, visibleQuestEntry, otherQuestEntry, globalEntry, chr, mob);
         
         if(YamlConfig.config.server.USE_SPAWN_LOOT_ON_ANIMATION) {
@@ -1006,6 +1033,8 @@ public class MapleMap {
         } else {
             mle.run();
         }
+        final long endTime = System.currentTimeMillis();
+        log.debug("MapleMap.registerMobItemDrops took {} ms", endTime - startTime);
     }
     
     private void spawnMobItemDrops() {
@@ -1367,7 +1396,7 @@ public class MapleMap {
                 if (mons != null) {
                     if (mons.getId() >= 8800003 && mons.getId() <= 8800010) {
                         final long endTime = System.currentTimeMillis();
-                        log.info("MapleMap.damageMonster 1 took {} ms.", endTime - startTime);
+                        log.debug("MapleMap.damageMonster 1 took {} ms.", endTime - startTime);
                         return true;
                     }
                 }
@@ -1381,7 +1410,7 @@ public class MapleMap {
                 if (monster.getHp() <= selfDestr.getHp()) {
                     killMonster(monster, chr, true, selfDestr.getAction());
                     final long endTime = System.currentTimeMillis();
-                    log.info("MapleMap.damageMonster 2 took {} ms.", endTime - startTime);
+                    log.debug("MapleMap.damageMonster 2 took {} ms.", endTime - startTime);
                     return true;
                 }
             }
@@ -1389,11 +1418,11 @@ public class MapleMap {
                 killMonster(monster, chr, true);
             }
             final long endTime = System.currentTimeMillis();
-            log.info("MapleMap.damageMonster 3 took {} ms.", endTime - startTime);
+            log.debug("MapleMap.damageMonster 3 took {} ms.", endTime - startTime);
             return true;
         }
         final long endTime = System.currentTimeMillis();
-        log.info("MapleMap.damageMonster 4 took {} ms.", endTime - startTime);
+        log.debug("MapleMap.damageMonster 4 took {} ms.", endTime - startTime);
         return false;
     }
     
@@ -1540,7 +1569,7 @@ public class MapleMap {
             }
         }
         final long endTime = System.currentTimeMillis();
-        log.info("MapleMap.killMonster took {} ms.",endTime - startTime);
+        log.debug("MapleMap.killMonster took {} ms.",endTime - startTime);
     }
 
     public void killFriendlies(MapleMonster mob) {

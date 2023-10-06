@@ -16,5 +16,9 @@
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
         </Root>
+<!--        <Logger name="server.maps" level="DEBUG"/>-->
+<!--        <Logger name="server.life" level="DEBUG"/>-->
+        <Logger name="server.MapleItemInformationProvider" level="DEBUG"/>
+        <Logger name="provider.MapleDataTool" level="DEBUG"/>
     </Loggers>
 </Configuration>

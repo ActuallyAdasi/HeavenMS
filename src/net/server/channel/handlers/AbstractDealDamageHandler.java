@@ -109,6 +109,8 @@ import scripting.AbstractPlayerInteraction;
 @Log4j2
 public abstract class AbstractDealDamageHandler extends AbstractMaplePacketHandler {
 
+    private static final int PRINT_DEBUG_THRESHOLD = 17;
+
     public static class AttackInfo {
 
         public int numAttacked, numDamage, numAttackedAndDamage, skill, skilllevel, stance, direction, rangedirection, charge, display;
@@ -576,8 +578,11 @@ public abstract class AbstractDealDamageHandler extends AbstractMaplePacketHandl
         } catch (Exception e) {
             e.printStackTrace();
         }
-        final long endTime = System.currentTimeMillis();
-        log.info("AbstractDealDamageHandler.applyAttack took {} ms.", endTime - startTime);
+        final long runtime = System.currentTimeMillis() - startTime;
+
+        if (runtime > PRINT_DEBUG_THRESHOLD) {
+            log.debug("AbstractDealDamageHandler.applyAttack took {} ms.", runtime);
+        }
     }
 
     private static void damageMonsterWithSkill(final MapleCharacter attacker, final MapleMap map, final MapleMonster monster, final int damage, int skillid, int fixedTime) {

@@ -413,7 +413,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
         try {
             if (!this.isAlive()) {
                 final long endTime = System.currentTimeMillis();
-                log.info("MapleMonster.damage 1 took {} ms.", endTime - startTime);
+                log.debug("MapleMonster.damage 1 took {} ms.", endTime - startTime);
                 return false;
             }
 
@@ -451,7 +451,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
         }
 
         final long endTime = System.currentTimeMillis();
-        log.info("MapleMonster.damage 2 took {} ms.", endTime - startTime);
+        log.debug("MapleMonster.damage 2 took {} ms.", endTime - startTime);
         return lastHit;
     }
     
@@ -606,6 +606,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
     }
     
     private void distributeExperience(int killerId) {
+        final long startTime = System.currentTimeMillis();
         if (isAlive()) {
             return;
         }
@@ -692,7 +693,8 @@ public class MapleMonster extends AbstractLoadedMapleLife {
         for(MapleCharacter mc : underleveled) {
             mc.showUnderleveledInfo(this);
         }
-        
+        final long endTime = System.currentTimeMillis();
+        log.debug("MapleMonster.distributeExperience took {} ms.", endTime - startTime);
     }
     
     private float getStatusExpMultiplier(MapleCharacter attacker, boolean hasPartySharers) {
@@ -858,7 +860,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
         
         MapleCharacter looter = map.getCharacterById(getHighestDamagerId());
         final long endTime = System.currentTimeMillis();
-        log.info("MapleMonster.killBy took {} ms.", endTime - startTime);
+        log.debug("MapleMonster.killBy took {} ms.", endTime - startTime);
         return looter != null ? looter : killer;
     }
     
@@ -1929,6 +1931,7 @@ public class MapleMonster extends AbstractLoadedMapleLife {
      * 
      */
     public Pair<MapleCharacter, Boolean> aggroRemoveController() {
+        final long startTime = System.currentTimeMillis();
         MapleCharacter chrController;
         boolean hadAggro;
         
@@ -1948,7 +1951,9 @@ public class MapleMonster extends AbstractLoadedMapleLife {
             if (!this.isFake()) chrController.announce(MaplePacketCreator.stopControllingMonster(this.getObjectId()));
             chrController.stopControllingMonster(this);
         }
-        
+
+        final long endTime = System.currentTimeMillis();
+        log.debug("MapleMonster.aggroRemoveController took {} ms.", endTime - startTime);
         return new Pair<>(chrController, hadAggro);
     }
     

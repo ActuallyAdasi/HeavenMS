@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.HashSet;
 
 import config.YamlConfig;
+import lombok.extern.log4j.Log4j2;
 import net.server.Server;
 import provider.MapleData;
 import provider.MapleDataDirectoryEntry;
@@ -76,8 +77,15 @@ import tools.StringUtil;
  * @author Matze
  *
  */
+@Log4j2
 public class MapleItemInformationProvider {
+    private class MapleDataFileAndDirName {
+        public String dirName;
+        public MapleDataFileEntry file;
+    }
     private final static MapleItemInformationProvider instance = new MapleItemInformationProvider();
+    private final static int PRINT_DEBUG_THRESHOLD = 17;
+    private final static boolean LOAD_EQUIP_DATA_GREEDY = true;
 
     public static MapleItemInformationProvider getInstance() {
         return instance;
@@ -139,8 +147,14 @@ public class MapleItemInformationProvider {
     protected Map<Integer, MapleData> skillUpgradeInfoCache = new HashMap<>();
     protected Map<Integer, Pair<Integer, Set<Integer>>> cashPetFoodCache = new HashMap<>();
     protected Map<Integer, QuestConsItem> questItemConsCache = new HashMap<>();
+    private final Map<String, MapleDataFileAndDirName> itemRootFilesByName = new HashMap<>();
+    private final Map<String, MapleData> itemDataByCompositeKey = new HashMap<>();
+    private final Map<String, MapleDataFileAndDirName> equipRootFilesByName = new HashMap<>();
+    private final Map<String, MapleData> equipDataByCompositeKey = new HashMap<>();
 
     private MapleItemInformationProvider() {
+        final long startTime = System.currentTimeMillis();
+        log.info("Initializing MapleItemInformationProvider...");
         loadCardIdData();
         itemData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Item.wz"));
         equipData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Character.wz"));
@@ -152,9 +166,66 @@ public class MapleItemInformationProvider {
         etcStringData = stringData.getData("Etc.img");
         insStringData = stringData.getData("Ins.img");
         petStringData = stringData.getData("Pet.img");
-
         isQuestItemCache.put(0, false);
         isPartyQuestItemCache.put(0, false);
+
+        // TODO: Reduce duplicate code, speed this up / eliminate the need.
+        // TODO: for item data store the proper depth for each item. Right now, some items have too much granularity.
+        // Warm a cache of all MapleData in Item.wz and Character.wz files.
+        int count = 0;
+        final List<MapleDataDirectoryEntry> itemDataDirectories = itemData.getRoot().getSubdirectories();
+        for (MapleDataDirectoryEntry topDir : itemDataDirectories) {
+            count++;
+            final List<MapleDataFileEntry> itemDataFiles = topDir.getFiles();
+            log.info("Initializing {} files in item directory {}/{}...",
+                    itemDataFiles.size(), count, itemDataDirectories.size());
+            for (MapleDataFileEntry iFile : itemDataFiles) {
+                final MapleDataFileAndDirName entry = new MapleDataFileAndDirName();
+                entry.file = iFile;
+                entry.dirName = topDir.getName();
+                itemRootFilesByName.put(iFile.getName(), entry);
+                final String compositeKeyPrefix = String.format("%s/%s", topDir.getName(), iFile.getName());
+                final MapleData fileData = itemData.getData(compositeKeyPrefix);
+                for (MapleData child : fileData.getChildren()) {
+                    final String compositeKey = String.format("%s:%s", compositeKeyPrefix, child.getName());
+                    itemDataByCompositeKey.put(compositeKey, child);
+                }
+            }
+        }
+
+        // equip
+        count = 0;
+        final List<MapleDataDirectoryEntry> equipDataDirectories = equipData.getRoot().getSubdirectories();
+        for (MapleDataDirectoryEntry topDir : equipData.getRoot().getSubdirectories()) {
+            count++;
+            final List<MapleDataFileEntry> itemDataFiles = topDir.getFiles();
+            log.info("Initializing {} files in equip directory {}/{}...",
+                    itemDataFiles.size(), count, equipDataDirectories.size());
+            for (MapleDataFileEntry iFile : topDir.getFiles()) {
+                final MapleDataFileAndDirName entry = new MapleDataFileAndDirName();
+                entry.file = iFile;
+                entry.dirName = topDir.getName();
+                equipRootFilesByName.put(iFile.getName(), entry);
+                if (LOAD_EQUIP_DATA_GREEDY) {
+                    final String compositeKeyPrefix = String.format("%s/%s", topDir.getName(), iFile.getName());
+                    final MapleData fileData = equipData.getData(compositeKeyPrefix);
+
+                    // for equip, the structure is one level less deep. Check if fileData is a number to verify.
+                    if (fileData.getName() != null && fileData.getName().matches("\\d+")) {
+                        // only numbers here, grab the extra depth
+                        for (MapleData child : fileData.getChildren()) {
+                            final String compositeKey = String.format("%s:%s", compositeKeyPrefix, child.getName());
+                            equipDataByCompositeKey.put(compositeKey, child);
+                        }
+                    } else {
+                        // Otherwise, not numbers, likely a leaf node. Populate equipDataByCompositeKey, compare performance
+                        // I'm very confident performance will be significantly better, but would like to measure
+                        equipDataByCompositeKey.put(compositeKeyPrefix, fileData);
+                    }
+                }
+            }
+        }
+        log.info("Initialized MapleItemInformationProvider in {} ms.", System.currentTimeMillis() - startTime);
     }
 
 
@@ -294,30 +365,53 @@ public class MapleItemInformationProvider {
     }
 
     private MapleData getItemData(int itemId) {
+        final long startTime = System.currentTimeMillis();
         MapleData ret = null;
-        String idStr = "0" + String.valueOf(itemId);
-        MapleDataDirectoryEntry root = itemData.getRoot();
-        for (MapleDataDirectoryEntry topDir : root.getSubdirectories()) {
-            for (MapleDataFileEntry iFile : topDir.getFiles()) {
-                if (iFile.getName().equals(idStr.substring(0, 4) + ".img")) {
-                    ret = itemData.getData(topDir.getName() + "/" + iFile.getName());
-                    if (ret == null) {
-                        return null;
-                    }
-                    ret = ret.getChildByPath(idStr);
-                    return ret;
-                } else if (iFile.getName().equals(idStr.substring(1) + ".img")) {
-                    return itemData.getData(topDir.getName() + "/" + iFile.getName());
-                }
+        final String itemIdString = String.format("%s", itemId);
+        final String zeroPrefixedItemId = String.format("0%s", itemId);
+        final String abbreviatedImageId = String.format("0%s.img", itemIdString.substring(0, 3));
+        final String fullImageId = String.format("%s.img", itemIdString);
+        final String equipImageId = String.format("0%s.img", itemIdString);
+
+        // TODO: reduce duplicate code between the three main cases: abbreviated, full, and equip image IDs
+        // item data
+        if (itemRootFilesByName.containsKey(abbreviatedImageId)) {
+            // cache warmed, grab from cache
+            final MapleDataFileAndDirName currentFileAndDirName = itemRootFilesByName.get(abbreviatedImageId);
+            final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + abbreviatedImageId;
+            final String compositeKey = String.format("%s:%s", compositeKeyPrefix, zeroPrefixedItemId);
+            ret = itemDataByCompositeKey.get(compositeKey);
+        } else if (itemRootFilesByName.containsKey(fullImageId)) {
+            // TODO: add caching for these files as well?
+            final MapleDataFileAndDirName currentFileAndDirName = itemRootFilesByName.get(fullImageId);
+            final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + fullImageId;
+            log.debug("getting item from itemData with fullImageId, not cached: {}", compositeKeyPrefix);
+            ret = itemData.getData(compositeKeyPrefix);
+            MapleData firstChild = null;
+            if (!ret.getChildren().isEmpty()) {
+                firstChild = ret.getChildren().get(0);
+            }
+            log.debug("We can follow similar pattern to equip data if children aren't numeric. First child: {}", firstChild);
+        }
+
+        // equip data
+        if (equipRootFilesByName.containsKey(equipImageId)) {
+            final MapleDataFileAndDirName currentFileAndDirName = equipRootFilesByName.get(equipImageId);
+            final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + equipImageId;
+            if (LOAD_EQUIP_DATA_GREEDY) {
+                ret = equipDataByCompositeKey.get(compositeKeyPrefix);
+            } else {
+                ret = equipData.getData(compositeKeyPrefix);
             }
         }
-        root = equipData.getRoot();
-        for (MapleDataDirectoryEntry topDir : root.getSubdirectories()) {
-            for (MapleDataFileEntry iFile : topDir.getFiles()) {
-                if (iFile.getName().equals(idStr + ".img")) {
-                    return equipData.getData(topDir.getName() + "/" + iFile.getName());
-                }
-            }
+
+        // warn if null, debug time if above threshold, and return
+        if (ret == null) {
+            log.warn("called getItemData on itemId {} and returning null!", itemId);
+        }
+        final long runtime = System.currentTimeMillis() - startTime;
+        if (runtime > PRINT_DEBUG_THRESHOLD) {
+            log.debug("MapleItemInformationProvider.getItemData took {} ms.", runtime);
         }
         return ret;
     }
@@ -546,10 +640,13 @@ public class MapleItemInformationProvider {
         Map<String, Integer> ret = new LinkedHashMap<>();
         MapleData item = getItemData(itemId);
         if (item == null) {
+            // This is where we're getting null
+            log.warn("Returning null for getEquipStats for item ID {}", itemId);
             return null;
         }
         MapleData info = item.getChildByPath("info");
         if (info == null) {
+            log.debug("Returning null for getEquipStats for missing 'info' child for item {}", item);
             return null;
         }
         for (MapleData data : info.getChildren()) {
@@ -572,6 +669,7 @@ public class MapleItemInformationProvider {
         ret.put("success", MapleDataTool.getInt("success", info, 0));
         ret.put("fs", MapleDataTool.getInt("fs", info, 0));
         equipStatsCache.put(itemId, ret);
+
         return ret;
     }
 
@@ -1387,12 +1485,22 @@ public class MapleItemInformationProvider {
     }
 
     public boolean isQuestItem(int itemId) {
+        final long startTime = System.currentTimeMillis();
         if (isQuestItemCache.containsKey(itemId)) {
+            final long runtime = System.currentTimeMillis() - startTime;
+            if (runtime > PRINT_DEBUG_THRESHOLD) {
+                log.debug("MapleItemInformationProvider.isQuestItem 1 took {} ms.", runtime);
+            }
             return isQuestItemCache.get(itemId);
         }
         MapleData data = getItemData(itemId);
         boolean questItem = (data != null && MapleDataTool.getIntConvert("info/quest", data, 0) == 1);
         isQuestItemCache.put(itemId, questItem);
+        // This is the next culprit, just taking ~100 ms every once and a while, specifically for visible quest items.
+        final long runtime = System.currentTimeMillis() - startTime;
+        if (runtime > PRINT_DEBUG_THRESHOLD) {
+            log.debug("MapleItemInformationProvider.isQuestItem 2 took {} ms.", runtime);
+        }
         return questItem;
     }
 
@@ -1678,7 +1786,7 @@ public class MapleItemInformationProvider {
              if (reqJob != 0) {
              Really hard check, and not really needed in this one
              Gm's should just be GM job, and players cannot change jobs.
-             }*/
+            */
             if (reqLevel > chr.getLevel()) {
                 continue;
             } else if (getEquipStats(equip.getItemId()).get("reqDEX") > tdex) {

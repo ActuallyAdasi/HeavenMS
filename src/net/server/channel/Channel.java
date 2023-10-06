@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ScheduledFuture;
 
+import lombok.extern.log4j.Log4j2;
 import net.server.audit.locks.MonitoredReadLock;
 import net.server.audit.locks.MonitoredWriteLock;
 import net.server.audit.locks.factory.MonitoredReadLockFactory;
@@ -84,6 +85,7 @@ import server.maps.MapleMiniDungeonInfo;
 import tools.MaplePacketCreator;
 import tools.Pair;
 
+@Log4j2
 public final class Channel {
 
     private int port = 7575;
@@ -173,7 +175,7 @@ public final class Channel {
             
             services = new ServicesManager(ChannelServices.OVERALL);
             
-            System.out.println("    Channel " + getId() + ": Listening on port " + port);
+            log.info("    Channel " + getId() + ": Listening on port " + port);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -195,7 +197,7 @@ public final class Channel {
                 return;
             }
             
-            System.out.println("Shutting down Channel " + channel + " on World " + world);
+            log.info("Shutting down Channel " + channel + " on World " + world);
             
             closeAllMerchants();
             disconnectAwayPlayers();
@@ -215,10 +217,10 @@ public final class Channel {
             acceptor.unbind();
             
             finishedShutdown = true;
-            System.out.println("Successfully shut down Channel " + channel + " on World " + world + "\r\n");
+            log.info("Successfully shut down Channel " + channel + " on World " + world + "\r\n");
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Error while shutting down Channel " + channel + " on World " + world + "\r\n" + e);
+            log.error("Error while shutting down Channel " + channel + " on World " + world + "\r\n" + e);
         }
     }
     
@@ -1031,26 +1033,20 @@ public final class Channel {
     }
     
     public void debugMarriageStatus() {
-        System.out.println(" ----- WORLD DATA -----");
+        log.info(" ----- WORLD DATA -----");
         getWorldServer().debugMarriageStatus();
         
-        System.out.println(" ----- CH. " + channel + " -----");
-        System.out.println(" ----- CATHEDRAL -----");
-        System.out.println("Current Queue: " + cathedralReservationQueue);
-        System.out.println("Cancel Task: " + (cathedralReservationTask != null));
-        System.out.println("Ongoing wid: " + ongoingCathedral);
-        System.out.println();
-        System.out.println("Ongoing wid: " + ongoingCathedral + " isPremium: " + ongoingCathedralType);
-        System.out.println("Guest list: " + ongoingCathedralGuests);
-        System.out.println();
-        System.out.println(" ----- CHAPEL -----");
-        System.out.println("Current Queue: " + chapelReservationQueue);
-        System.out.println("Cancel Task: " + (chapelReservationTask != null));
-        System.out.println("Ongoing wid: " + ongoingChapel);
-        System.out.println();
-        System.out.println("Ongoing wid: " + ongoingChapel + " isPremium: " + ongoingChapelType);
-        System.out.println("Guest list: " + ongoingChapelGuests);
-        System.out.println();
-        System.out.println("Starttime: " + ongoingStartTime);
+        log.info(" ----- CH. " + channel + " -----");
+        log.info(" ----- CATHEDRAL -----");
+        log.info("Current Queue: " + cathedralReservationQueue);
+        log.info("Cancel Task: " + (cathedralReservationTask != null));
+        log.info("Ongoing wid: " + ongoingCathedral);
+        log.info("Guest list: " + ongoingCathedralGuests);
+        log.info(" ----- CHAPEL -----");
+        log.info("Current Queue: " + chapelReservationQueue);
+        log.info("Cancel Task: " + (chapelReservationTask != null));
+        log.info("Ongoing wid: " + ongoingChapel);
+        log.info("Guest list: " + ongoingChapelGuests);
+        log.info("Starttime: " + ongoingStartTime);
     }
 }

@@ -48,3 +48,8 @@ jar {
     }
     from 'configuration' // Include the log4j2.xml file
 }
+
+run {
+    // Set the maximum heap size (Xmx)
+    jvmArgs = ['-Xmx4g'] // Adjust the size as needed, e.g., '-Xmx1g' for 1 GB
+}

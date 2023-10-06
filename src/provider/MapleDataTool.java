@@ -23,8 +23,11 @@ package provider;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
+
+import lombok.extern.log4j.Log4j2;
 import provider.wz.MapleDataType;
 
+@Log4j2
 public class MapleDataTool {
     public static String getString(MapleData data) {
         return ((String) data.getData());
@@ -121,18 +124,36 @@ public class MapleDataTool {
     }
 
     public static int getIntConvert(String path, MapleData data, int def) {
+        final long startTime = System.currentTimeMillis();
+        // This is a source of latency sometimes
         MapleData d = data.getChildByPath(path);
         if (d == null) {
+            final long runtime = System.currentTimeMillis() - startTime;
+            if (runtime > 17) {
+                log.debug("MapleDataTool.getIntConvert 1 took {} ms.", runtime);
+            }
             return def;
         }
         if (d.getType() == MapleDataType.STRING) {
             try {
+                final long runtime = System.currentTimeMillis() - startTime;
+                if (runtime > 17) {
+                    log.debug("MapleDataTool.getIntConvert 2 took {} ms.", runtime);
+                }
                 return Integer.parseInt(getString(d));
             } catch (NumberFormatException nfe) {
                 nfe.printStackTrace();
+                final long runtime = System.currentTimeMillis() - startTime;
+                if (runtime > 17) {
+                    log.debug("MapleDataTool.getIntConvert 3 took {} ms.", runtime);
+                }
                 return def;
             }
         } else {
+            final long runtime = System.currentTimeMillis() - startTime;
+            if (runtime > 17) {
+                log.debug("MapleDataTool.getIntConvert 4 took {} ms.", runtime);
+            }
             return getInt(d, def);
         }
     }

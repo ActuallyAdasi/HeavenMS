@@ -56,6 +56,7 @@ import java.util.PriorityQueue;
 import java.util.WeakHashMap;
 import java.util.concurrent.ScheduledFuture;
 
+import lombok.extern.log4j.Log4j2;
 import scripting.event.EventInstanceManager;
 import server.MapleStorage;
 import server.TimerManager;
@@ -112,6 +113,7 @@ import tools.packets.Fishing;
  * @author kevintjuh93
  * @author Ronan - thread-oriented (world schedules + guild queue + marriages + party chars)
  */
+@Log4j2
 public class World {
 
     private int id, flag, exprate, droprate, bossdroprate, mesorate, questrate, travelrate, fishingrate;
@@ -855,8 +857,8 @@ public class World {
     }
     
     public void debugMarriageStatus() {
-        System.out.println("Queued marriages: " + queuedMarriages);
-        System.out.println("Guest list: " + marriageGuests);
+        log.info("Queued marriages: " + queuedMarriages);
+        log.info("Guest list: " + marriageGuests);
     }
     
     private void registerCharacterParty(Integer chrid, Integer partyid) {
@@ -1025,7 +1027,7 @@ public class World {
                 }
                 break;
             default:
-                System.out.println("Unhandled updateParty operation " + operation.name());
+                log.warn("Unhandled updateParty operation " + operation.name());
         }
         updateParty(party, operation, target);
     }
@@ -2188,6 +2190,6 @@ public class World {
         players = null;
         
         clearWorldData();
-        System.out.println("Finished shutting down world " + id + "\r\n");
+        log.info("Finished shutting down world " + id + "\r\n");
     }
 }
