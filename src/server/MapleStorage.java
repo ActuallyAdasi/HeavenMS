@@ -22,6 +22,7 @@ import client.MapleClient;
 import client.inventory.Item;
 import client.inventory.ItemFactory;
 import client.inventory.MapleInventoryType;
+import config.YamlConfig;
 import constants.game.GameConstants;
 import java.io.File;
 import java.sql.Connection;
@@ -235,8 +236,11 @@ public class MapleStorage {
     }
     
     public void sendStorage(MapleClient c, int npcId) {
-        if (c.getPlayer().getLevel() < 15){
-            c.getPlayer().dropMessage(1, "You may only use the storage once you have reached level 15.");
+        if (c.getPlayer().getLevel() < YamlConfig.config.server.MIN_LEVEL_FOR_STORAGE){
+            final String message = String.format(
+                    "You may only use the storage once you have reached level %s.",
+                    YamlConfig.config.server.MIN_LEVEL_FOR_STORAGE);
+            c.getPlayer().dropMessage(1, message);
             c.announce(MaplePacketCreator.enableActions());
             return;
         }

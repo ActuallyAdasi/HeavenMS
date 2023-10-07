@@ -4,12 +4,6 @@ public class ServerConfig {
     //Thread Tracker Configuration
     public boolean USE_THREAD_TRACKER;
 
-    //Database Configuration
-    public String DB_URL;
-    public String DB_USER;
-    public String DB_PASS;
-    public boolean DB_CONNECTION_POOL;
-
     //Login Configuration
     public int WORLDS;
     public int WLDLIST_SIZE;
@@ -42,7 +36,6 @@ public class ServerConfig {
     public int LOGIN_ATTEMPT_DURATION;
 
     //Ip Configuration
-    public String HOST;
     public boolean LOCALSERVER;
     public boolean GMSERVER;
 
@@ -71,6 +64,7 @@ public class ServerConfig {
     public boolean USE_DUEY;
     public boolean USE_RANDOMIZE_HPMP_GAIN;
     public boolean USE_STORAGE_ITEM_SORT;
+    public int MIN_LEVEL_FOR_STORAGE;
     public boolean USE_ITEM_SORT;
     public boolean USE_ITEM_SORT_BY_NAME;
     public boolean USE_PARTY_FOR_STARTERS;

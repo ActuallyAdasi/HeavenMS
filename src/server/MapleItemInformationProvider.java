@@ -67,10 +67,13 @@ import constants.skills.Assassin;
 import constants.skills.Gunslinger;
 import constants.skills.NightWalker;
 import java.sql.Connection;
+import java.util.concurrent.*;
+
 import server.MakerItemFactory.MakerItemCreateEntry;
 import server.life.MapleMonsterInformationProvider;
 import server.life.MapleLifeFactory;
 import tools.StringUtil;
+import tools.parallelism.GetMapleDataTask;
 
 /**
  *
@@ -79,13 +82,12 @@ import tools.StringUtil;
  */
 @Log4j2
 public class MapleItemInformationProvider {
-    private class MapleDataFileAndDirName {
+    public static class MapleDataFileAndDirName {
         public String dirName;
         public MapleDataFileEntry file;
     }
     private final static MapleItemInformationProvider instance = new MapleItemInformationProvider();
     private final static int PRINT_DEBUG_THRESHOLD = 17;
-    private final static boolean LOAD_EQUIP_DATA_GREEDY = true;
 
     public static MapleItemInformationProvider getInstance() {
         return instance;
@@ -169,65 +171,20 @@ public class MapleItemInformationProvider {
         isQuestItemCache.put(0, false);
         isPartyQuestItemCache.put(0, false);
 
-        // TODO: Reduce duplicate code, speed this up / eliminate the need.
-        // TODO: for item data store the proper depth for each item. Right now, some items have too much granularity.
+        // TODO: speed this up or eliminate the need. right now it's only a couple of seconds faster than serial.
         // Warm a cache of all MapleData in Item.wz and Character.wz files.
-        int count = 0;
-        final List<MapleDataDirectoryEntry> itemDataDirectories = itemData.getRoot().getSubdirectories();
-        for (MapleDataDirectoryEntry topDir : itemDataDirectories) {
-            count++;
-            final List<MapleDataFileEntry> itemDataFiles = topDir.getFiles();
-            log.info("Initializing {} files in item directory {}/{}...",
-                    itemDataFiles.size(), count, itemDataDirectories.size());
-            for (MapleDataFileEntry iFile : itemDataFiles) {
-                final MapleDataFileAndDirName entry = new MapleDataFileAndDirName();
-                entry.file = iFile;
-                entry.dirName = topDir.getName();
-                itemRootFilesByName.put(iFile.getName(), entry);
-                final String compositeKeyPrefix = String.format("%s/%s", topDir.getName(), iFile.getName());
-                final MapleData fileData = itemData.getData(compositeKeyPrefix);
-                for (MapleData child : fileData.getChildren()) {
-                    final String compositeKey = String.format("%s:%s", compositeKeyPrefix, child.getName());
-                    itemDataByCompositeKey.put(compositeKey, child);
-                }
-            }
-        }
-
-        // equip
-        count = 0;
-        final List<MapleDataDirectoryEntry> equipDataDirectories = equipData.getRoot().getSubdirectories();
-        for (MapleDataDirectoryEntry topDir : equipData.getRoot().getSubdirectories()) {
-            count++;
-            final List<MapleDataFileEntry> itemDataFiles = topDir.getFiles();
-            log.info("Initializing {} files in equip directory {}/{}...",
-                    itemDataFiles.size(), count, equipDataDirectories.size());
-            for (MapleDataFileEntry iFile : topDir.getFiles()) {
-                final MapleDataFileAndDirName entry = new MapleDataFileAndDirName();
-                entry.file = iFile;
-                entry.dirName = topDir.getName();
-                equipRootFilesByName.put(iFile.getName(), entry);
-                if (LOAD_EQUIP_DATA_GREEDY) {
-                    final String compositeKeyPrefix = String.format("%s/%s", topDir.getName(), iFile.getName());
-                    final MapleData fileData = equipData.getData(compositeKeyPrefix);
-
-                    // for equip, the structure is one level less deep. Check if fileData is a number to verify.
-                    if (fileData.getName() != null && fileData.getName().matches("\\d+")) {
-                        // only numbers here, grab the extra depth
-                        for (MapleData child : fileData.getChildren()) {
-                            final String compositeKey = String.format("%s:%s", compositeKeyPrefix, child.getName());
-                            equipDataByCompositeKey.put(compositeKey, child);
-                        }
-                    } else {
-                        // Otherwise, not numbers, likely a leaf node. Populate equipDataByCompositeKey, compare performance
-                        // I'm very confident performance will be significantly better, but would like to measure
-                        equipDataByCompositeKey.put(compositeKeyPrefix, fileData);
-                    }
-                }
-            }
-        }
-        log.info("Initialized MapleItemInformationProvider in {} ms.", System.currentTimeMillis() - startTime);
+        final ForkJoinPool commonPool = ForkJoinPool.commonPool();
+        final List<MapleDataDirectoryEntry> itemDirectories = itemData.getRoot().getSubdirectories();
+        final List<MapleDataDirectoryEntry> equipDirectories = equipData.getRoot().getSubdirectories();
+        itemDataByCompositeKey.putAll(
+                commonPool.invoke(new GetMapleDataTask(itemData, itemDirectories, itemRootFilesByName)));
+        log.info("Done warming cache for item data.");
+        equipDataByCompositeKey.putAll(
+                commonPool.invoke(new GetMapleDataTask(equipData, equipDirectories, equipRootFilesByName)));
+        log.info("Done warming cache for equip data.");
+        log.info("Initialized MapleItemInformationProvider in {} ms.",
+                System.currentTimeMillis() - startTime);
     }
-
 
     public List<Pair<Integer, String>> getAllItems() {
         if (!itemNameCache.isEmpty()) {
@@ -398,11 +355,7 @@ public class MapleItemInformationProvider {
         if (equipRootFilesByName.containsKey(equipImageId)) {
             final MapleDataFileAndDirName currentFileAndDirName = equipRootFilesByName.get(equipImageId);
             final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + equipImageId;
-            if (LOAD_EQUIP_DATA_GREEDY) {
-                ret = equipDataByCompositeKey.get(compositeKeyPrefix);
-            } else {
-                ret = equipData.getData(compositeKeyPrefix);
-            }
+            ret = equipDataByCompositeKey.get(compositeKeyPrefix);
         }
 
         // warn if null, debug time if above threshold, and return

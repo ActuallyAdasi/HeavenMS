@@ -52,4 +52,5 @@ jar {
 run {
     // Set the maximum heap size (Xmx)
     jvmArgs = ['-Xmx4g'] // Adjust the size as needed, e.g., '-Xmx1g' for 1 GB
+    systemProperty 'java.util.concurrent.ForkJoinPool.common.parallelism', '8'
 }

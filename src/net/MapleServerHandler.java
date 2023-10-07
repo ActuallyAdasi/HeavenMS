@@ -201,6 +201,7 @@ public class MapleServerHandler extends IoHandlerAdapter {
         if (packetHandler != null && packetHandler.validateState(client)) {
             try {
             	MapleLogger.logRecv(client, packetId, message);
+                log.debug("Handling packet for {}", packetHandler.getClass().getName());
                 packetHandler.handlePacket(slea, client);
             } catch (final Throwable t) {
                 FilePrinter.printError(FilePrinter.PACKET_HANDLER + packetHandler.getClass().getName() + ".txt", t, "Error for " + (client.getPlayer() == null ? "" : "player ; " + client.getPlayer() + " on map ; " + client.getPlayer().getMapId() + " - ") + "account ; " + client.getAccountName() + "\r\n" + slea.toString());

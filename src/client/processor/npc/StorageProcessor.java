@@ -50,8 +50,11 @@ public class StorageProcessor {
                 MapleStorage storage = chr.getStorage();
                 byte mode = slea.readByte();
 
-                if (chr.getLevel() < 15){
-                        chr.dropMessage(1, "You may only use the storage once you have reached level 15.");
+                if (chr.getLevel() < YamlConfig.config.server.MIN_LEVEL_FOR_STORAGE){
+                        final String message = String.format(
+                                "You may only use the storage once you have reached level %s.",
+                                YamlConfig.config.server.MIN_LEVEL_FOR_STORAGE);
+                        chr.dropMessage(1, message);
                         c.announce(MaplePacketCreator.enableActions());
                         return;
                 }

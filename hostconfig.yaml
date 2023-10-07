@@ -1,0 +1,8 @@
+# HOST IP and DB IP don't necessarily be the same, but would be best for lower latency.
+HOST: 127.0.0.1
+DB_URL: "jdbc:mysql://localhost:3306/heavenms"
+DB_USER: "root"
+DB_PASS: ""
+
+# Reuse connections to DB
+DB_CONNECTION_POOL: true

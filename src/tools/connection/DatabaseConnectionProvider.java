@@ -1,6 +1,6 @@
 package tools.connection;
 
-import config.YamlConfig;
+import config.HostYamlConfig;
 import lombok.extern.log4j.Log4j2;
 
 import java.sql.Connection;
@@ -25,7 +25,7 @@ public class DatabaseConnectionProvider {
 
     public Connection getConnection() throws SQLException {
         final Connection connectionToReturn;
-        if(YamlConfig.config.server.DB_CONNECTION_POOL) {
+        if(HostYamlConfig.config.DB_CONNECTION_POOL) {
             connectionToReturn = getConnectionPoolConnection();
         } else {
             connectionToReturn = getDriverManagerConnection();
@@ -51,9 +51,9 @@ public class DatabaseConnectionProvider {
 
     private ProtectedCloseConnectionDecorator getDriverManagerConnection() throws SQLException {
         return new ProtectedCloseConnectionDecorator(DriverManager.getConnection(
-                YamlConfig.config.server.DB_URL,
-                YamlConfig.config.server.DB_USER,
-                YamlConfig.config.server.DB_PASS));
+                HostYamlConfig.config.DB_URL,
+                HostYamlConfig.config.DB_USER,
+                HostYamlConfig.config.DB_PASS));
     }
 
     private String getKey() {

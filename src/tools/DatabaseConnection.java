@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
-import config.YamlConfig;
+import config.HostYamlConfig;
 import lombok.extern.log4j.Log4j2;
 
 /**
@@ -21,14 +21,9 @@ public class DatabaseConnection {
     private static HikariDataSource ds;
     
     public static Connection getConnection() throws SQLException {
-        final long startTime = System.currentTimeMillis();
         if(ds != null) {
             try {
-                final Connection connectionToReturn = ds.getConnection();
-                final long endTime = System.currentTimeMillis();
-                log.info("DatabaseConnection.getConnection: returning existing hikari data source connection after {} ms.",
-                        endTime - startTime);
-                return connectionToReturn;
+                return ds.getConnection();
             } catch (SQLException sqle) {
                 sqle.printStackTrace();
             }
@@ -38,14 +33,9 @@ public class DatabaseConnection {
         while(true) {   // There is no way it can pass with a null out of here?
             try {
                 final Connection connectionToReturn = DriverManager.getConnection(
-                        YamlConfig.config.server.DB_URL,
-                        YamlConfig.config.server.DB_USER,
-                        YamlConfig.config.server.DB_PASS);
-//                final long endTime = System.currentTimeMillis();
-//                final String logMessage = String.format(
-//                        "DatabaseConnection.getConnection: returning DriverManager.getConnection after %s ms.",
-//                        endTime - startTime);
-//                System.out.println(logMessage);
+                        HostYamlConfig.config.DB_URL,
+                        HostYamlConfig.config.DB_USER,
+                        HostYamlConfig.config.DB_PASS);
                 return connectionToReturn;
             } catch (SQLException sqle) {
                 denies++;
@@ -61,7 +51,7 @@ public class DatabaseConnection {
     
     private static int getNumberOfAccounts() {
         try {
-            Connection con = DriverManager.getConnection(YamlConfig.config.server.DB_URL, YamlConfig.config.server.DB_USER, YamlConfig.config.server.DB_PASS);
+            Connection con = DriverManager.getConnection(HostYamlConfig.config.DB_URL, HostYamlConfig.config.DB_USER, HostYamlConfig.config.DB_PASS);
             try (PreparedStatement ps = con.prepareStatement("SELECT count(*) FROM accounts")) {
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
@@ -85,14 +75,14 @@ public class DatabaseConnection {
 
         ds = null;
 
-        if(YamlConfig.config.server.DB_CONNECTION_POOL) {
+        if(HostYamlConfig.config.DB_CONNECTION_POOL) {
             // Connection Pool on database ftw!
             
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl(YamlConfig.config.server.DB_URL);
+            config.setJdbcUrl(HostYamlConfig.config.DB_URL);
             
-            config.setUsername(YamlConfig.config.server.DB_USER);
-            config.setPassword(YamlConfig.config.server.DB_PASS);
+            config.setUsername(HostYamlConfig.config.DB_USER);
+            config.setPassword(HostYamlConfig.config.DB_PASS);
             
             // Make sure pool size is comfortable for the worst case scenario.
             // Under 100 accounts? Make it 10. Over 10000 accounts? Make it 30.

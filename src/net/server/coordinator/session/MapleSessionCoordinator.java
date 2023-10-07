@@ -19,6 +19,7 @@
 */
 package net.server.coordinator.session;
 
+import lombok.extern.log4j.Log4j2;
 import net.server.coordinator.login.LoginStorage;
 import client.MapleCharacter;
 import client.MapleClient;
@@ -52,6 +53,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @author Ronan
  */
+@Log4j2
 public class MapleSessionCoordinator {
     
     private final static MapleSessionCoordinator instance = new MapleSessionCoordinator();
@@ -414,13 +416,15 @@ public class MapleSessionCoordinator {
     }
 
     public AntiMulticlientResult attemptGameSession(IoSession session, int accountId, String remoteHwid) {
+        log.debug("Attempting game session for account ID {}", accountId);
         String remoteHost = getSessionRemoteHost(session);
         if (!YamlConfig.config.server.DETERRED_MULTICLIENT) {
             associateRemoteHostHwid(remoteHost, remoteHwid);
             associateRemoteHostHwid(getSessionRemoteAddress(session), remoteHwid);  // no HWID information on the loggedin newcomer session...
+            log.debug("Associated RemoteHost HW IDs and returning AntiMulticlientResult.SUCCESS");
             return AntiMulticlientResult.SUCCESS;
         }
-        
+
         Lock lock = getCoodinatorLock(remoteHost);
         try {
             int tries = 0;

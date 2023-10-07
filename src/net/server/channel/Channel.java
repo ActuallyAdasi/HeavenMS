@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ScheduledFuture;
 
+import config.HostYamlConfig;
 import lombok.extern.log4j.Log4j2;
 import net.server.audit.locks.MonitoredReadLock;
 import net.server.audit.locks.MonitoredWriteLock;
@@ -143,7 +144,7 @@ public final class Channel {
         try {
             port = 7575 + this.channel - 1;
             port += (world * 100);
-            ip = YamlConfig.config.server.HOST + ":" + port;
+            ip = HostYamlConfig.config.HOST + ":" + port;
             IoBuffer.setUseDirectBuffer(false);
             IoBuffer.setAllocator(new SimpleBufferAllocator());
             acceptor = new NioSocketAcceptor();
