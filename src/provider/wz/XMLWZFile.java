@@ -25,10 +25,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+
+import lombok.extern.log4j.Log4j2;
 import provider.MapleData;
 import provider.MapleDataDirectoryEntry;
 import provider.MapleDataProvider;
 
+@Log4j2
 public class XMLWZFile implements MapleDataProvider {
     private File root;
     private WZDirectoryEntry rootForNavigation;
@@ -53,16 +56,17 @@ public class XMLWZFile implements MapleDataProvider {
     }
 
     @Override
-    public synchronized MapleData getData(String path) {
+    public MapleData getData(String path) {
         File dataFile = new File(root, path + ".xml");
         File imageDataDir = new File(root, path);
         if (!dataFile.exists()) {
-            return null;//bitches
+            return null;
         }
         FileInputStream fis;
         try {
             fis = new FileInputStream(dataFile);
         } catch (FileNotFoundException e) {
+            log.error("Throwing RuntimeException: WMLWZFile.getData caught FileNotFoundException:", e);
             throw new RuntimeException("Datafile " + path + " does not exist in " + root.getAbsolutePath());
         }
         final XMLDomMapleData domMapleData;
@@ -72,6 +76,7 @@ public class XMLWZFile implements MapleDataProvider {
             try {
                 fis.close();
             } catch (IOException e) {
+                log.error("Throwing RuntimeException: WMLWZFile.getData caught IOException:", e);
                 throw new RuntimeException(e);
             }
         }

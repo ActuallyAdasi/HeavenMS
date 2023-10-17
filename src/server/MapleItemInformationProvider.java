@@ -73,6 +73,8 @@ import server.MakerItemFactory.MakerItemCreateEntry;
 import server.life.MapleMonsterInformationProvider;
 import server.life.MapleLifeFactory;
 import tools.StringUtil;
+import tools.parallelism.ConcurrentMapleDataCache;
+import tools.parallelism.FasterCacheMapleDataAction;
 import tools.parallelism.GetMapleDataTask;
 
 /**
@@ -93,10 +95,14 @@ public class MapleItemInformationProvider {
         return instance;
     }
 
-    protected MapleDataProvider itemData;
-    protected MapleDataProvider equipData;
-    protected MapleDataProvider stringData;
-    protected MapleDataProvider etcData;
+    protected final MapleDataProvider itemData =
+            MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Item.wz"));
+    protected final MapleDataProvider equipData =
+            MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Character.wz"));
+    protected final MapleDataProvider stringData =
+            MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/String.wz"));
+    protected final MapleDataProvider etcData =
+            MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Etc.wz"));
     protected MapleData cashStringData;
     protected MapleData consumeStringData;
     protected MapleData eqpStringData;
@@ -149,19 +155,13 @@ public class MapleItemInformationProvider {
     protected Map<Integer, MapleData> skillUpgradeInfoCache = new HashMap<>();
     protected Map<Integer, Pair<Integer, Set<Integer>>> cashPetFoodCache = new HashMap<>();
     protected Map<Integer, QuestConsItem> questItemConsCache = new HashMap<>();
-    private final Map<String, MapleDataFileAndDirName> itemRootFilesByName = new HashMap<>();
-    private final Map<String, MapleData> itemDataByCompositeKey = new HashMap<>();
-    private final Map<String, MapleDataFileAndDirName> equipRootFilesByName = new HashMap<>();
-    private final Map<String, MapleData> equipDataByCompositeKey = new HashMap<>();
+    protected final ConcurrentMapleDataCache itemDataCache = new ConcurrentMapleDataCache(itemData, false);
+    protected final ConcurrentMapleDataCache equipDataCache = new ConcurrentMapleDataCache(equipData, true);
 
     private MapleItemInformationProvider() {
         final long startTime = System.currentTimeMillis();
         log.info("Initializing MapleItemInformationProvider...");
         loadCardIdData();
-        itemData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Item.wz"));
-        equipData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Character.wz"));
-        stringData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/String.wz"));
-        etcData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Etc.wz"));
         cashStringData = stringData.getData("Cash.img");
         consumeStringData = stringData.getData("Consume.img");
         eqpStringData = stringData.getData("Eqp.img");
@@ -170,20 +170,17 @@ public class MapleItemInformationProvider {
         petStringData = stringData.getData("Pet.img");
         isQuestItemCache.put(0, false);
         isPartyQuestItemCache.put(0, false);
-
-        // TODO: speed this up or eliminate the need. right now it's only a couple of seconds faster than serial.
-        // Warm a cache of all MapleData in Item.wz and Character.wz files.
-        final ForkJoinPool commonPool = ForkJoinPool.commonPool();
-        final List<MapleDataDirectoryEntry> itemDirectories = itemData.getRoot().getSubdirectories();
-        final List<MapleDataDirectoryEntry> equipDirectories = equipData.getRoot().getSubdirectories();
-        itemDataByCompositeKey.putAll(
-                commonPool.invoke(new GetMapleDataTask(itemData, itemDirectories, itemRootFilesByName)));
-        log.info("Done warming cache for item data.");
-        equipDataByCompositeKey.putAll(
-                commonPool.invoke(new GetMapleDataTask(equipData, equipDirectories, equipRootFilesByName)));
-        log.info("Done warming cache for equip data.");
+        warmCache();
         log.info("Initialized MapleItemInformationProvider in {} ms.",
                 System.currentTimeMillis() - startTime);
+    }
+
+    private void warmCache() {
+        // TODO: speed this up or eliminate the need. right now it's just about the same speed as serial.
+        // Warm caches of all MapleData in Item.wz and Character.wz files.
+        itemDataCache.warmDataCache();
+        equipDataCache.warmDataCache();
+        log.info("Done warming cache for item and equip data.");
     }
 
     public List<Pair<Integer, String>> getAllItems() {
@@ -324,43 +321,99 @@ public class MapleItemInformationProvider {
     private MapleData getItemData(int itemId) {
         final long startTime = System.currentTimeMillis();
         MapleData ret = null;
-        final String itemIdString = String.format("%s", itemId);
-        final String zeroPrefixedItemId = String.format("0%s", itemId);
-        final String abbreviatedImageId = String.format("0%s.img", itemIdString.substring(0, 3));
-        final String fullImageId = String.format("%s.img", itemIdString);
-        final String equipImageId = String.format("0%s.img", itemIdString);
 
-        // TODO: reduce duplicate code between the three main cases: abbreviated, full, and equip image IDs
-        // item data
-        if (itemRootFilesByName.containsKey(abbreviatedImageId)) {
-            // cache warmed, grab from cache
-            final MapleDataFileAndDirName currentFileAndDirName = itemRootFilesByName.get(abbreviatedImageId);
-            final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + abbreviatedImageId;
-            final String compositeKey = String.format("%s:%s", compositeKeyPrefix, zeroPrefixedItemId);
-            ret = itemDataByCompositeKey.get(compositeKey);
-        } else if (itemRootFilesByName.containsKey(fullImageId)) {
-            // TODO: add caching for these files as well?
-            final MapleDataFileAndDirName currentFileAndDirName = itemRootFilesByName.get(fullImageId);
-            final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + fullImageId;
-            log.debug("getting item from itemData with fullImageId, not cached: {}", compositeKeyPrefix);
-            ret = itemData.getData(compositeKeyPrefix);
-            MapleData firstChild = null;
-            if (!ret.getChildren().isEmpty()) {
-                firstChild = ret.getChildren().get(0);
+        /*/
+        final MapleData cachedItem = itemDataCache.getItemData(itemId);
+        final MapleData cachedEquip = equipDataCache.getItemData(itemId);
+        int matchedCaches = 0;
+        if (cachedItem != null) {
+            ret = cachedItem;
+            matchedCaches++;
+        }
+        if (cachedEquip != null) {
+            ret = cachedEquip;
+            matchedCaches++;
+        }
+
+        if (matchedCaches == 2) {
+            log.warn("When getting item data in MapleItem Info Provider, " +
+                    "itemId {} matched for both item cache and equip cache!", itemId);
+        }
+
+        if (matchedCaches == 0) {
+            log.warn("When getting item data in MapleItem Info Provider, " +
+                    "itemId {} didn't match in item cache or equip cache! " +
+                    "Checking possible files from cache to see if we have this item somewhere...", itemId);
+            final List<MapleData> possibleData = itemDataCache.getPossibleDataFromCacheForItemId(itemId);
+            possibleData.addAll(equipDataCache.getPossibleDataFromCacheForItemId(itemId));
+            if (possibleData.size() == 1) {
+                log.warn("Found exactly one possible data from cache for itemId {}, why wasn't this " +
+                        "retrieved properly the first time?", itemId);
+                ret = possibleData.get(0);
             }
-            log.debug("We can follow similar pattern to equip data if children aren't numeric. First child: {}", firstChild);
+            if (possibleData.size() > 1) {
+                log.warn("Found more than one possible data from cache for itemId {}, " +
+                        "using first: {}", itemId, possibleData);
+                ret = possibleData.get(0);
+            }
         }
 
-        // equip data
-        if (equipRootFilesByName.containsKey(equipImageId)) {
-            final MapleDataFileAndDirName currentFileAndDirName = equipRootFilesByName.get(equipImageId);
-            final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + equipImageId;
-            ret = equipDataByCompositeKey.get(compositeKeyPrefix);
+        if (ret == null) {
+            log.warn("Item still null for item id {}, grabbing possible items from data and " +
+                    "adding to cache.", itemId);
+            final List<MapleData> possibleData = itemDataCache.getPossibleDataForItemId(itemId);
+            possibleData.addAll(equipDataCache.getPossibleDataForItemId(itemId));
+            if (possibleData.size() == 1) {
+                ret = possibleData.get(0);
+            }
+            if (possibleData.size() > 1) {
+                log.warn("Found more than one possible data for itemId {}, using first: {}", itemId, possibleData);
+                ret = possibleData.get(0);
+            }
         }
+
+        /*/
+
+        if (ret == null) {
+//            log.warn("Item STILL null for item id {}! Checking the old way which works, but why " +
+//                    "did the new way not work...", itemId);
+            final String itemIdString = String.format("%s", itemId);
+            final String zeroPrefixedItemId = String.format("0%s", itemId);
+            final String abbreviatedImageId = String.format("0%s.img", itemIdString.substring(0, 3));
+            final String fullImageId = String.format("%s.img", itemIdString);
+            final String equipImageId = String.format("0%s.img", itemIdString);
+
+            // TODO: reduce duplicate code between the three main cases: abbreviated, full, and equip image IDs
+            // item data
+            if (itemDataCache.getFileByName(abbreviatedImageId) != null) {
+                // cache warmed, grab from cache
+                final MapleDataFileAndDirName currentFileAndDirName = itemDataCache.getFileByName(abbreviatedImageId);
+                final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + abbreviatedImageId;
+                final String compositeKey = String.format("%s:%s", compositeKeyPrefix, zeroPrefixedItemId);
+                ret = itemDataCache.getItemData(compositeKey);
+            } else if (itemDataCache.getFileByName(fullImageId) != null) {
+                // TODO: add caching for these files as well?
+                final MapleDataFileAndDirName currentFileAndDirName = itemDataCache.getFileByName(fullImageId);
+                final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + fullImageId;
+                log.warn("getting item from itemData with key prefix for fullImageId, not cached: {}",
+                        compositeKeyPrefix);
+                ret = itemData.getData(compositeKeyPrefix);
+            }
+
+            // equip data
+            if (equipDataCache.getFileByName(equipImageId) != null) {
+                final MapleDataFileAndDirName currentFileAndDirName = equipDataCache.getFileByName(equipImageId);
+                final String compositeKeyPrefix = currentFileAndDirName.dirName + "/" + equipImageId;
+                ret = equipDataCache.getItemData(compositeKeyPrefix);
+            }
+        }
+        //*/
 
         // warn if null, debug time if above threshold, and return
+        // UPDATE: I'm making this an error. It is indicative that something is wrong with the server, right?
+        // The one thing I'm not sure is, if there is a way for a rogue client to send bad requests for items that DNE.
         if (ret == null) {
-            log.warn("called getItemData on itemId {} and returning null!", itemId);
+            log.error("called getItemData on itemId {} and returning null!", itemId);
         }
         final long runtime = System.currentTimeMillis() - startTime;
         if (runtime > PRINT_DEBUG_THRESHOLD) {
@@ -594,12 +647,12 @@ public class MapleItemInformationProvider {
         MapleData item = getItemData(itemId);
         if (item == null) {
             // This is where we're getting null
-            log.warn("Returning null for getEquipStats for item ID {}", itemId);
+            log.error("Returning null for getEquipStats for item ID {}", itemId);
             return null;
         }
         MapleData info = item.getChildByPath("info");
         if (info == null) {
-            log.debug("Returning null for getEquipStats for missing 'info' child for item {}", item);
+            log.error("Returning null for getEquipStats for missing 'info' child for item {}", item);
             return null;
         }
         for (MapleData data : info.getChildren()) {

@@ -7,7 +7,7 @@
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="${LOG_PATTERN}"/>
         </Console>
-        <File name="File" fileName="logs/${date:yyyy-MM-dd}/heavenms_application.log" immediateFlush="true" append="true">
+        <File name="File" fileName="logs/${date:yyyy-MM-dd}/heavenms_application.log" immediateFlush="false" append="true">
             <PatternLayout pattern="${LOG_PATTERN}"/>
         </File>
     </Appenders>
@@ -19,7 +19,11 @@
 <!--        <Logger name="server.maps" level="DEBUG"/>-->
 <!--        <Logger name="server.life" level="DEBUG"/>-->
         <Logger name="server.MapleItemInformationProvider" level="DEBUG"/>
+<!--        <Logger name="tools.parallelism" level="DEBUG"/>-->
         <Logger name="provider.MapleDataTool" level="DEBUG"/>
         <Logger name="net.server.coordinator.session" level="DEBUG"/>
+
+<!--        This can help identify which packet handler is causing errors: it prints  the name of the packets handled.-->
+<!--        <Logger name="net.MapleServerHandler" level="DEBUG"/>-->
     </Loggers>
 </Configuration>

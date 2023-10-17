@@ -39,6 +39,7 @@ import tools.data.input.SeekableLittleEndianAccessor;
 public final class CharSelectedHandler extends AbstractMaplePacketHandler {
     
     private static int parseAntiMulticlientError(AntiMulticlientResult res) {
+        log.warn("Parsing anti multiclient error. res: {}", res);
         switch (res) {
             case REMOTE_PROCESSING:
                 return 10;

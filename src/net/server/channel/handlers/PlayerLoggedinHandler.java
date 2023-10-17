@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import config.YamlConfig;
+import lombok.extern.log4j.Log4j2;
 import net.AbstractMaplePacketHandler;
 import net.server.PlayerBuffValueHolder;
 import net.server.Server;
@@ -75,6 +76,7 @@ import server.life.MobSkill;
 import scripting.event.EventInstanceManager;
 import tools.packets.Wedding;
 
+@Log4j2
 public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
 
     private static Set<Integer> attemptingLoginAccounts = new HashSet<>();
@@ -110,6 +112,7 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
             try {
                 World wserv = server.getWorld(c.getWorld());
                 if(wserv == null) {
+                    log.error("PlayerLoggedinHandler World server was null! disconnecting and shutting down.");
                     c.disconnect(true, false);
                     return;
                 }
@@ -120,6 +123,7 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                     cserv = wserv.getChannel(c.getChannel());
 
                     if(cserv == null) {
+                        log.error("PlayerLoggedinHandler Channel server was null! disconnecting and shutting down.");
                         c.disconnect(true, false);
                         return;
                     }
@@ -130,8 +134,10 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                 
                 String remoteHwid;
                 if (player == null) {
+                    // I think here it's looking for login session, but the session is already closed?
                     remoteHwid = MapleSessionCoordinator.getInstance().pickLoginSessionHwid(session);
                     if (remoteHwid == null) {
+                        log.error("PlayerLoggedinHandler remote HW ID was null! disconnecting and shutting down.");
                         c.disconnect(true, false);
                         return;
                     }
@@ -145,6 +151,7 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                 c.setHWID(remoteHwid);
                 
                 if (!server.validateCharacteridInTransition(c, cid)) {
+                    log.error("PlayerLoggedinHandler validateCharacteridInTransition failed! disconnecting and shutting down.");
                     c.disconnect(true, false);
                     return;
                 }
@@ -155,10 +162,12 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                         player = MapleCharacter.loadCharFromDB(cid, c, true);
                         newcomer = true;
                     } catch (SQLException e) {
+                        log.error("PlayerLoggedinHandler SQL exception! Suppressing.", e);
                         e.printStackTrace();
                     }
                     
-                    if (player == null) { //If you are still getting null here then please just uninstall the game >.>, we dont need you fucking with the logs
+                    if (player == null) {
+                        log.error("PlayerLoggedinHandler player is null! disconnecting and shutting down.");
                         c.disconnect(true, false);
                         return;
                     }
@@ -193,8 +202,10 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                             c.setAccID(0);
 
                             if (state == MapleClient.LOGIN_LOGGEDIN) {
+                                log.error("PlayerLoggedinHandler MapleClient LOGIN_LOGGEDIN state, disconnecting and shutting down.");
                                 c.disconnect(true, false);
                             } else {
+                                log.error("PlayerLoggedinHandler AfterLoginError 7.");
                                 c.announce(MaplePacketCreator.getAfterLoginError(7));
                             }
 
@@ -207,6 +218,7 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                 } else {
                     c.setPlayer(null);
                     c.setAccID(0);
+                    log.error("PlayerLoggedinHandler AfterLoginError 10.");
                     c.announce(MaplePacketCreator.getAfterLoginError(10));
                     return;
                 }
@@ -428,16 +440,18 @@ public final class PlayerLoggedinHandler extends AbstractMaplePacketHandler {
                 }
                 
                 if (YamlConfig.config.server.USE_NPCS_SCRIPTABLE) {
+                    log.info("PlayerLoggedinHandler configured for USE_NPCS_SCRIPTABLE, announcing appropriately.");
                     c.announce(MaplePacketCreator.setNPCScriptable(ScriptableNPCConstants.SCRIPTABLE_NPCS));
                 }
                 
                 if(newcomer) player.setLoginTime(System.currentTimeMillis());
             } catch(Exception e) {
-                e.printStackTrace();
+                log.error("PlayerLoggedinHandler got unhandled exception:", e);
             } finally {
                 c.releaseClient();
             }
         } else {
+            log.error("PlayerLoggedinHandler getAfterLoginError(10)");
             c.announce(MaplePacketCreator.getAfterLoginError(10));
         }
     }

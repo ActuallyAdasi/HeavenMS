@@ -92,7 +92,10 @@ public class MapleServerHandler extends IoHandlerAdapter {
     
     @Override
     public void exceptionCaught(IoSession session, Throwable cause) {
+        log.error("MapleServerHandler caught exception for session {}!", session.getId(), cause);
         if (cause instanceof IOException) {
+            // TODO: only log session ID, not full session object. I just want to see if the attributes are printed.
+            log.error("MapleServerHandler closing maple session for session {} from IOException!", session, cause);
             closeMapleSession(session);
         } else {
             MapleClient client = (MapleClient) session.getAttribute(MapleClient.CLIENT_KEY);
@@ -120,7 +123,8 @@ public class MapleServerHandler extends IoHandlerAdapter {
         } catch (NullPointerException npe) {    // thanks Agassy, Alchemist for pointing out possibility of remoteHost = null.
             remoteHost = "null";
         }
-        
+
+        log.info("Setting MapleClient.CLIENT_REMOTE_ADDRESS attribute to {} for sessionId {}", remoteHost, session.getId());
         session.setAttribute(MapleClient.CLIENT_REMOTE_ADDRESS, remoteHost);
         
         if (!Server.getInstance().isOnline()) {
@@ -153,8 +157,10 @@ public class MapleServerHandler extends IoHandlerAdapter {
         client.setSessionId(sessionId.getAndIncrement()); // Generates a reasonable session id.
         session.write(MaplePacketCreator.getHello(ServerConstants.VERSION, ivSend, ivRecv));
         session.setAttribute(MapleClient.CLIENT_KEY, client);
-        log.info("Done calling sessionOpened for IoSession Id {}, created client session ID {}",
+        log.info("Done calling sessionOpened for IoSession Id {}, CLIENT_REMOTE_ADDRESS attribute {}, " +
+                        "created client session ID {}",
                 session.getId(),
+                session.getAttribute(MapleClient.CLIENT_REMOTE_ADDRESS),
                 client.getSessionId());
     }
 
@@ -185,6 +191,8 @@ public class MapleServerHandler extends IoHandlerAdapter {
     
     @Override
     public void sessionClosed(IoSession session) throws Exception {
+        // NOTE: This is called for the "normal" closure after char selected, but then the in-game session is also closed with this call.
+        log.info("MapleServerHandler sessionClosed called for world {} channel {}!", this.world, this.channel);
         closeMapleSession(session);
         super.sessionClosed(session);
     }

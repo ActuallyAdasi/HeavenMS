@@ -12,8 +12,11 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     compileOnly 'org.projectlombok:lombok:1.18.22'
     annotationProcessor 'org.projectlombok:lombok:1.18.22'
+    implementation 'com.lmax:disruptor:3.4.2' // To fix async logging error, adjust the version number if needed
     implementation group: 'com.zaxxer', name: 'HikariCP-java7', version: '2.4.13'
     implementation group: 'org.apache.mina', name: 'mina-core', version: '2.0.21'
     implementation group: 'mysql', name: 'mysql-connector-java', version: '8.0.33'
@@ -52,5 +55,16 @@ jar {
 run {
     // Set the maximum heap size (Xmx)
     jvmArgs = ['-Xmx4g'] // Adjust the size as needed, e.g., '-Xmx1g' for 1 GB
-    systemProperty 'java.util.concurrent.ForkJoinPool.common.parallelism', '8'
+    systemProperty 'java.util.concurrent.ForkJoinPool.common.parallelism', '16'
+    systemProperty 'log4j2.contextSelector', 'org.apache.logging.log4j.core.async.AsyncLoggerContextSelector'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+
+    maxHeapSize = '1G'
+
+    testLogging {
+        events "passed"
+    }
 }

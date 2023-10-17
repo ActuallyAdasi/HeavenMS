@@ -8,60 +8,50 @@ import provider.MapleDataFileEntry;
 import provider.MapleDataProvider;
 import server.MapleItemInformationProvider;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RecursiveAction;
 
 @AllArgsConstructor
 @Log4j2
-public class GetMapleDataTask extends RecursiveTask<Map<String, MapleData>> {
+public class CacheMapleDataAction extends RecursiveAction {
+    private final static int FORK_SIZE_THRESHOLD = 8;
 
     private final MapleDataProvider dataProvider;
     private final List<MapleDataDirectoryEntry> dataDirectories;
-    // Should be a concurrent hashmap!
-    private final Map<String, MapleItemInformationProvider.MapleDataFileAndDirName> filesByName;
+    // Should be concurrent hashmaps!
+    private final ConcurrentHashMap<String, MapleItemInformationProvider.MapleDataFileAndDirName> filesByName;
+    private final ConcurrentHashMap<String, MapleData> mapleDataCache;
 
     @Override
-    protected Map<String, MapleData> compute() {
+    protected void compute() {
         if (dataDirectories.isEmpty()) {
-            return new HashMap<>();
+            return;
         }
-        if (dataDirectories.size() == 1) {
-            return getMapleDataForDirectory(dataDirectories.get(0));
+        if (dataDirectories.size() <= FORK_SIZE_THRESHOLD) {
+            for (final MapleDataDirectoryEntry dataDirectory : dataDirectories) {
+                cacheMapleDataForDirectory(dataDirectory);
+            }
         }
-        final Map<String, MapleData> dataToReturn = new HashMap<>();
         int mid = dataDirectories.size() / 2;
         final List<MapleDataDirectoryEntry> dataDirs1 = dataDirectories.subList(0, mid);
         final List<MapleDataDirectoryEntry> dataDirs2 = dataDirectories.subList(mid, dataDirectories.size());
-        final GetMapleDataTask task1 = new GetMapleDataTask(dataProvider, dataDirs1, filesByName);
-        final GetMapleDataTask task2 = new GetMapleDataTask(dataProvider, dataDirs2, filesByName);
+        final CacheMapleDataAction task1 = new CacheMapleDataAction(dataProvider, dataDirs1, filesByName, mapleDataCache);
+        final CacheMapleDataAction task2 = new CacheMapleDataAction(dataProvider, dataDirs2, filesByName, mapleDataCache);
         task1.fork();
-        dataToReturn.putAll(task2.compute());
-        dataToReturn.putAll(task1.join());
-        return dataToReturn;
+        task2.fork();
+        task1.join();
+        task2.join();
     }
 
-    private Map<String, MapleData> getMapleDataForDirectory(
-            final MapleDataDirectoryEntry dataDirectory
-    ) {
-        final Map<String, MapleData> dataToReturn = new HashMap<>();
-        initializeDataDirectory(dataProvider, filesByName, dataToReturn, dataDirectory);
-        return dataToReturn;
-    }
-
-    private void initializeDataDirectory(
-            final MapleDataProvider dataToGet,
-            final Map<String, MapleItemInformationProvider.MapleDataFileAndDirName> filesByName,
-            final Map<String, MapleData> dataToLoad,
-            final MapleDataDirectoryEntry dataDirectory
-    ) {
+    private void cacheMapleDataForDirectory(final MapleDataDirectoryEntry dataDirectory) {
         final List<MapleDataFileEntry> dataFiles = dataDirectory.getFiles();
         log.info("Initializing {} files in {} directory...",
                 dataFiles.size(), dataDirectory.getName());
         for (final MapleDataFileEntry iFile : dataDirectory.getFiles()) {
             initializeFileAndLoadData(
-                    dataToGet, filesByName, dataToLoad, iFile, dataDirectory.getName());
+                    dataProvider, filesByName, mapleDataCache, iFile, dataDirectory.getName());
         }
         log.info("Done initializing {} files in {} directory.",
                 dataFiles.size(), dataDirectory.getName());

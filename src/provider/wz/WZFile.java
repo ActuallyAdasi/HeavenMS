@@ -26,6 +26,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+
+import lombok.extern.log4j.Log4j2;
 import provider.MapleData;
 import provider.MapleDataDirectoryEntry;
 import provider.MapleDataFileEntry;
@@ -37,6 +39,7 @@ import tools.data.input.LittleEndianAccessor;
 import tools.data.input.RandomAccessByteStream;
 import tools.data.input.SeekableLittleEndianAccessor;
 
+@Log4j2
 public class WZFile implements MapleDataProvider {
     static {
         ListWZFile.init();
@@ -133,7 +136,7 @@ public class WZFile implements MapleDataProvider {
     }
 
     @Override
-    public synchronized MapleData getData(String path) {
+    public MapleData getData(String path) {
         try {
             WZIMGFile imgFile = getImgFile(path);
             if (imgFile == null) {
@@ -142,7 +145,7 @@ public class WZFile implements MapleDataProvider {
             MapleData ret = imgFile.getRoot();
             return ret;
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("WZFile.getData caught IOException:", e);
         }
         return null;
     }

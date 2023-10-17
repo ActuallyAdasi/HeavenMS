@@ -71,6 +71,7 @@ import constants.net.ServerConstants;
 import constants.skills.Buccaneer;
 import constants.skills.Corsair;
 import constants.skills.ThunderBreaker;
+import lombok.extern.log4j.Log4j2;
 import net.opcodes.SendOpcode;
 import net.server.PlayerCoolDownValueHolder;
 import net.server.Server;
@@ -122,6 +123,7 @@ import java.util.TimeZone;
  *
  * @author Frz
  */
+@Log4j2
 public class MaplePacketCreator {
 
         public static final List<Pair<MapleStat, Integer>> EMPTY_STATUPDATE = Collections.emptyList();
@@ -634,6 +636,7 @@ public class MaplePacketCreator {
          * @return The login failed packet.
          */
         public static byte[] getLoginFailed(int reason) {
+                log.warn("getting login failed for reason {}", reason);
                 final MaplePacketLittleEndianWriter mplew = new MaplePacketLittleEndianWriter(8);
                 mplew.writeShort(SendOpcode.LOGIN_STATUS.getValue());
                 mplew.write(reason);
@@ -663,6 +666,7 @@ public class MaplePacketCreator {
          * @return The login failed packet.
          */
         public static byte[] getAfterLoginError(int reason) {//same as above o.o
+                log.warn("getting after login error for reason {}", reason);
                 final MaplePacketLittleEndianWriter mplew = new MaplePacketLittleEndianWriter(8);
                 mplew.writeShort(SendOpcode.SELECT_CHARACTER_BY_VAC.getValue());
                 mplew.writeShort(reason);//using other types than stated above = CRASH
@@ -785,6 +789,7 @@ public class MaplePacketCreator {
         }
 
         public static byte[] wrongPic() {
+                log.warn("Wrong pic!");
                 final MaplePacketLittleEndianWriter mplew = new MaplePacketLittleEndianWriter(3);
                 mplew.writeShort(SendOpcode.CHECK_SPW_RESULT.getValue());
                 mplew.write(0);

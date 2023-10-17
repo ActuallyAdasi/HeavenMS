@@ -257,6 +257,7 @@ public class MapleSessionCoordinator {
 
     public boolean canStartLoginSession(IoSession session) {
         if (!YamlConfig.config.server.DETERRED_MULTICLIENT) return true;
+        log.debug("DETERRED_MULTICLIENT is turned on, checking canStartLoginSession for session {}", session.getId());
 
         String remoteHost = getSessionRemoteHost(session);
         Lock lock = getCoodinatorLock(remoteHost);
@@ -347,6 +348,7 @@ public class MapleSessionCoordinator {
     public AntiMulticlientResult attemptLoginSession(IoSession session, String nibbleHwid, int accountId, boolean routineCheck) {
         if (!YamlConfig.config.server.DETERRED_MULTICLIENT) {
             session.setAttribute(MapleClient.CLIENT_NIBBLEHWID, nibbleHwid);
+            log.debug("Set nibble hardware ID attribute and returning AntiMulticlientResult.SUCCESS");
             return AntiMulticlientResult.SUCCESS;
         }
 
@@ -370,6 +372,7 @@ public class MapleSessionCoordinator {
                     break;
                 } else {
                     if(tries == 2) {
+                        log.debug("Attempted login session twice, returning AntiMulticlientResult.COORDINATOR_ERROR");
                         return AntiMulticlientResult.COORDINATOR_ERROR;
                     }
                     tries++;

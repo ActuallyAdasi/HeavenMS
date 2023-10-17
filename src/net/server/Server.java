@@ -903,13 +903,12 @@ public class Server {
         log.info("Skills loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
 
         timeToTake = System.currentTimeMillis();
-        
         CashItemFactory.getSpecialCashItems();
         log.info("Items loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
         
-	timeToTake = System.currentTimeMillis();
-	MapleQuest.loadAllQuest();
-	log.info("Quest loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
+        timeToTake = System.currentTimeMillis();
+        MapleQuest.loadAllQuest();
+        log.info("Quest loaded in {} seconds", (System.currentTimeMillis() - timeToTake) / 1000.0);
 	
         NewYearCardRecord.startPendingNewYearCardRequests();
         
@@ -946,6 +945,7 @@ public class Server {
         try {
             acceptor.bind(new InetSocketAddress(8484));
         } catch (IOException ex) {
+            log.error("Server caught IO exception trying to bind to port 8484:", ex);
             ex.printStackTrace();
         }
         

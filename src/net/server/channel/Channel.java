@@ -300,8 +300,10 @@ public final class Channel {
     }
     
     public void addPlayer(MapleCharacter chr) {
+        log.info("Adding player {} to channel.", chr.getName());
         players.addPlayer(chr);
         chr.announce(MaplePacketCreator.serverMessage(serverMessage));
+        log.info("Finished announcing player {} added to channel.", chr.getName());
     }
     
     public String getServerMessage() {
